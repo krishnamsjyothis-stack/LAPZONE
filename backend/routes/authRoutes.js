@@ -8,6 +8,7 @@ import {
   forgotPassword,
   verifyForgotPasswordOtp,
   resetPassword,
+  logout,
 } from "../controllers/authController.js";
 
 import {
@@ -17,7 +18,6 @@ import {
 
 const router = express.Router();
 
-// ================= SIGNUP =================
 
 router.post(
   "/signup",
@@ -36,7 +36,13 @@ router.post(
   signup
 );
 
-// ================= LOGIN =================
+
+
+router.post(
+  "/signup/verify-otp",
+  verifySignupOtp
+);
+
 
 router.post(
   "/login",
@@ -55,39 +61,53 @@ router.post(
   login
 );
 
-// ================= GOOGLE LOGIN =================
+
+
+router.get("/session", (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({
+      authenticated: false,
+      message: "No active session",
+    });
+  }
+
+  return res.status(200).json({
+    authenticated: true,
+    userId: req.session.userId,
+    message: "Session is active",
+  });
+});
+
+
+router.post(
+  "/logout",
+  logout
+);
+
+
 
 router.post(
   "/google",
   googleLogin
 );
 
-// ================= FORGOT PASSWORD =================
 
 router.post(
   "/forgot-password",
   forgotPassword
 );
 
-// ================= VERIFY FORGOT PASSWORD OTP =================
+
 
 router.post(
   "/forgot-password/verify-otp",
   verifyForgotPasswordOtp
 );
 
-// ================= RESET PASSWORD =================
 
 router.post(
   "/reset-password",
   resetPassword
-);
-
-// ================= VERIFY SIGNUP OTP =================
-
-router.post(
-  "/signup/verify-otp",
-  verifySignupOtp
 );
 
 export default router;

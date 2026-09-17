@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
+import addressSchema from "../validation/addressValidation";
 
 function Addresses() {
   const navigate = useNavigate();
@@ -83,53 +84,97 @@ function Addresses() {
 
   // ================= ADD / UPDATE =================
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    try {
-      const token = localStorage.getItem("token");
+  // ================= FRONTEND VALIDATION =================
 
-      if (editingId) {
-        await api.put(
-          `/address/${editingId}`,
-          formData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+  console.log("FORM DATA:", formData);
+  console.log("PHONE:", formData.phone);
+  console.log("PHONE LENGTH:", formData.phone.length);
+  console.log("PINCODE:", formData.pincode);
+  console.log("PINCODE LENGTH:", formData.pincode.length);
 
-        alert("Address updated successfully");
-      } else {
-        await api.post(
-          "/address",
-          formData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+  const result = addressSchema.safeParse(formData);
 
-        alert("Address added successfully");
-      }
+  if (!result.success) {
+    console.log(
+      "ADDRESS VALIDATION:",
+      result.error.issues
+    );
 
-      resetForm();
-      fetchAddresses();
+    return;
+  }
 
-    } catch (error) {
-      console.error(
-        "Address save error:",
-        error.response?.data || error.message
-      );
+  // ================= GET TOKEN =================
 
-      alert(
-        error.response?.data?.message ||
-          "Failed to save address"
-      );
+  try {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/login");
+      return;
     }
-  };
+
+    // ================= UPDATE ADDRESS =================
+
+    if (editingId) {
+      await api.put(
+        `/address/${editingId}`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      alert("Address updated successfully");
+    }
+
+    // ================= ADD ADDRESS =================
+
+    else {
+      await api.post(
+        "/address",
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      alert("Address added successfully");
+    }
+
+    // ================= AFTER SUCCESS =================
+
+    resetForm();
+    fetchAddresses();
+
+  } catch (error) {
+    console.error(
+      "ADDRESS SAVE ERROR:",
+      error
+    );
+
+    console.error(
+      "RESPONSE:",
+      error.response
+    );
+
+    console.error(
+      "RESPONSE DATA:",
+      error.response?.data
+    );
+
+    alert(
+      error.response?.data?.message ||
+        "Failed to save address"
+    );
+  }
+};
 
   // ================= EDIT =================
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import profileSchema from "../validation/profileValidation";
 import api from "../api/axios";
 
 function EditProfile() {
@@ -17,6 +18,11 @@ function EditProfile() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
+
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // ================= GET PROFILE =================
 
@@ -85,13 +91,15 @@ const handleImageChange = (e) => {
   }
 
   if (!file.type.startsWith("image/")) {
-    alert("Please select an image file only.");
-    return;
+    setErrorMessage("Please select an image file only.");
+setShowErrorModal(true);
+return;
   }
 
   if (file.size > 5 * 1024 * 1024) {
-    alert("Image size must be less than 5MB.");
-    return;
+    setErrorMessage("Image size must be less than 5MB.");
+setShowErrorModal(true);
+return;
   }
 
   setSelectedImage(file);
@@ -103,13 +111,29 @@ const handleImageChange = (e) => {
 
   // ================= SAVE PROFILE =================
 
-  const handleSubmit = async (e) => {
+ const handleSubmit = async (e) => {
   e.preventDefault();
 
-  if (!formData.name.trim()) {
-    alert("Please enter your name");
+  const result = profileSchema.safeParse({
+    name: formData.name,
+    phone: formData.phone,
+  });
+
+  if (!result.success) {
+    const errors = {};
+
+    result.error.issues.forEach((issue) => {
+      const field = issue.path[0];
+      errors[field] = issue.message;
+    });
+
+    setValidationErrors(errors);
     return;
   }
+
+  setValidationErrors({});
+
+ 
 
   try {
     setSaving(true);
@@ -141,9 +165,7 @@ const handleImageChange = (e) => {
 
     console.log("UPDATE PROFILE:", response.data);
 
-    alert("Profile updated successfully!");
-
-    navigate("/profile");
+    setShowSuccessModal(true);
 
   } catch (error) {
     console.error(
@@ -151,10 +173,12 @@ const handleImageChange = (e) => {
       error.response?.data || error.message
     );
 
-    alert(
-      error.response?.data?.message ||
-        "Failed to update profile"
-    );
+    setErrorMessage(
+  error.response?.data?.message ||
+    "Failed to update profile"
+);
+
+setShowErrorModal(true);
 
   } finally {
     setSaving(false);
@@ -312,6 +336,11 @@ const handleImageChange = (e) => {
                   placeholder="Enter your name"
                   className="w-full h-12 bg-[#222731] border border-[#4a5568] rounded-lg px-4 text-white outline-none focus:border-[#c51f35]"
                 />
+                {validationErrors.name && (
+  <p className="text-red-400 text-xs mt-2">
+    {validationErrors.name}
+  </p>
+)}
 
               </div>
 
@@ -332,6 +361,12 @@ const handleImageChange = (e) => {
                   placeholder="Enter your phone number"
                   className="w-full h-12 bg-[#222731] border border-[#4a5568] rounded-lg px-4 text-white outline-none focus:border-[#c51f35]"
                 />
+                {validationErrors.phone && (
+  <p className="text-red-400 text-xs mt-2">
+    {validationErrors.phone}
+  </p>
+)}
+                
 
               </div>
 
@@ -340,30 +375,31 @@ const handleImageChange = (e) => {
 
             {/* EMAIL */}
 
-            <div className="mt-6">
+           <div>
+  <label className="block text-sm text-gray-400 mb-2">
+    EMAIL ADDRESS
+  </label>
 
-              <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">
-                Email Address
-              </label>
+  <div className="h-12 bg-[#222731] rounded-lg px-4 flex items-center justify-between text-gray-400">
+    <span>{formData.email}</span>
 
-              <div className="w-full h-12 bg-[#222731] border border-[#4a5568] rounded-lg px-4 flex items-center justify-between">
+    <span className="text-sm">
+      🔒 READ ONLY
+    </span>
+  </div>
 
-                <span className="text-gray-400">
-                  {formData.email}
-                </span>
+  <p className="text-gray-500 text-sm mt-2">
+    Email address cannot be changed here.
+  </p>
 
-                <span className="text-gray-500 text-sm">
-                  🔒 READ ONLY
-                </span>
-
-              </div>
-
-              <p className="text-gray-500 text-sm mt-2">
-                Email address cannot be changed here.
-              </p>
-
-            </div>
-
+  <button
+    type="button"
+    onClick={() => navigate("/change-email")}
+    className="mt-3 text-[#d62839] hover:text-[#ef4052] font-medium"
+  >
+    Change Email
+  </button>
+</div>
 
             {/* BUTTONS */}
 
@@ -392,6 +428,104 @@ const handleImageChange = (e) => {
         </div>
 
       </main>
+
+      {/* SUCCESS MODAL */}
+{showSuccessModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+    <div className="w-full max-w-xl bg-[#151820] border border-[#303642] rounded-3xl p-8 shadow-2xl">
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => {
+            setShowSuccessModal(false);
+            navigate("/profile");
+          }}
+          className="text-gray-400 hover:text-white text-3xl"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="flex justify-center mt-1">
+        <div className="w-20 h-20 rounded-full bg-[#173d2d] flex items-center justify-center">
+          <span className="text-5xl text-green-400">
+            ✓
+          </span>
+        </div>
+      </div>
+
+      <h2 className="text-center text-4xl font-bold text-white mt-8">
+        PROFILE UPDATED
+      </h2>
+
+      <p className="text-center text-gray-400 mt-3">
+        Your profile has been updated successfully.
+      </p>
+
+      <button
+        type="button"
+        onClick={() => {
+          setShowSuccessModal(false);
+          navigate("/profile");
+        }}
+        className="w-full h-14 mt-8 rounded-xl bg-[#c51f35] hover:bg-[#b51a2b] text-white font-semibold tracking-wide"
+      >
+        CONTINUE
+      </button>
+
+    </div>
+  </div>
+)}
+
+{/* ERROR MODAL */}
+{showErrorModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+    <div className="w-full max-w-xl bg-[#151820] border border-[#303642] rounded-3xl p-8 shadow-2xl">
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setShowErrorModal(false)}
+          className="text-gray-400 hover:text-white text-3xl"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="flex justify-center mt-1">
+        <div className="w-20 h-20 rounded-full bg-[#451724] flex items-center justify-center">
+          <span className="text-5xl text-[#c51f35]">
+            !
+          </span>
+        </div>
+      </div>
+
+      <h2 className="text-center text-4xl font-bold text-white mt-8">
+        UPDATE FAILED
+      </h2>
+
+      <div className="mt-8 bg-[#11151d] rounded-2xl p-6 text-center">
+        <h3 className="text-xl font-semibold text-white">
+          Unable to update profile
+        </h3>
+
+        <p className="text-gray-400 mt-2">
+          {errorMessage}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setShowErrorModal(false)}
+        className="w-full h-14 mt-8 rounded-xl bg-[#c51f35] hover:bg-[#b51a2b] text-white font-semibold tracking-wide"
+      >
+        TRY AGAIN
+      </button>
+
+    </div>
+  </div>
+)}
 
     </div>
   );

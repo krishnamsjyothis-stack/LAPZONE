@@ -2,11 +2,8 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 
-// ================= UPLOAD FOLDER =================
-
 const uploadFolder = "uploads/profile";
 
-// Create folder if it doesn't exist
 if (!fs.existsSync(uploadFolder)) {
   fs.mkdirSync(uploadFolder, {
     recursive: true,
@@ -14,7 +11,7 @@ if (!fs.existsSync(uploadFolder)) {
 }
 
 
-// ================= STORAGE =================
+
 
 const storage = multer.diskStorage({
 
@@ -36,7 +33,6 @@ const storage = multer.diskStorage({
 });
 
 
-// ================= FILE FILTER =================
 
 const fileFilter = (req, file, cb) => {
 
@@ -52,7 +48,7 @@ const fileFilter = (req, file, cb) => {
 };
 
 
-// ================= MULTER =================
+
 
 const upload = multer({
   storage,

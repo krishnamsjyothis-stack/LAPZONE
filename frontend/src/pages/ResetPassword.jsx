@@ -12,6 +12,10 @@ function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] =
     useState(false);
@@ -41,14 +45,10 @@ function ResetPassword() {
 
     try {
       setLoading(true);
-
-      const response = await api.post(
-        "/auth/reset-password",
-        {
-          email,
-          password,
-        }
-      );
+    const response = await api.post("/auth/reset-password", {
+    email,
+   password,
+    });
 
       console.log(response.data);
 
@@ -273,6 +273,71 @@ function ResetPassword() {
         </div>
 
       </div>
+      {/* ================= SUCCESS MODAL ================= */}
+
+{showSuccessModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+
+    <div className="w-full max-w-xl bg-[#151820] border border-[#303642] rounded-3xl p-8 shadow-2xl">
+
+      {/* Close */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => {
+            setShowSuccessModal(false);
+            navigate("/login");
+          }}
+          className="text-gray-400 hover:text-white text-3xl"
+        >
+          ×
+        </button>
+      </div>
+
+      {/* Success Icon */}
+      <div className="flex justify-center mt-1">
+        <div className="w-20 h-20 rounded-full bg-[#451724] flex items-center justify-center">
+          <span className="text-5xl text-[#c51f35]">
+            ✓
+          </span>
+        </div>
+      </div>
+
+      {/* Title */}
+      <h2 className="text-center text-4xl font-bold text-white mt-8">
+        PASSWORD RESET SUCCESSFUL
+      </h2>
+
+      {/* Message */}
+      <div className="mt-8 bg-[#11151d] rounded-2xl p-6 text-center">
+
+        <h3 className="text-xl font-semibold text-white">
+          Your password has been updated
+        </h3>
+
+        <p className="text-gray-400 mt-2">
+          Your LAPZONE password has been successfully
+          reset. You can now login using your new password.
+        </p>
+
+      </div>
+
+      {/* Button */}
+      <button
+        type="button"
+        onClick={() => {
+          setShowSuccessModal(false);
+          navigate("/login");
+        }}
+        className="w-full h-14 mt-8 rounded-xl bg-[#c51f35] hover:bg-[#b51a2b] text-white font-semibold tracking-wide"
+      >
+        GO TO LOGIN
+      </button>
+
+    </div>
+
+  </div>
+)}
 
     </div>
   );

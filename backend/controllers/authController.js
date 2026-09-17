@@ -7,45 +7,30 @@ import Otp from "../models/Otp.js";
 import sendEmail from "../utils/sendEmail.js";
 
 
-
-
-// ================= SIGNUP =================
-
 const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
     const cleanEmail = email.trim().toLowerCase();
 
-    // Check if user already exists
     const existingUser = await User.findOne({
       email: cleanEmail,
     });
 
     if (existingUser) {
-      return res.status(400).json({
-        message: "User already exists",
-      });
+      return res.status(400).json({ message: "User already exists",});
     }
-
-    // Hash password
     const hashedPassword = await bcrypt.hash(
       password,
       10
     );
-
-    // Generate OTP
     const otp = Math.floor(
       100000 + Math.random() * 900000
     ).toString();
 
-    // Delete old signup OTP
-    await Otp.deleteMany({
-      email: cleanEmail,
-      purpose: "signup",
-    });
+    
+    await Otp.deleteMany({email: cleanEmail,purpose: "signup",});
 
-    // Save signup OTP
     await Otp.create({
       email: cleanEmail,
       otp,
@@ -57,7 +42,7 @@ const signup = async (req, res) => {
       ),
     });
 
-    // Send OTP
+
     await sendEmail(
       cleanEmail,
       "LAPZONE Signup OTP",
@@ -78,13 +63,10 @@ const signup = async (req, res) => {
     });
   }
 };
-// ================= VERIFY SIGNUP OTP =================
 
 const verifySignupOtp = async (req, res) => {
   try {
-    console.log("========== VERIFY SIGNUP OTP ==========");
-    console.log("BODY:", req.body);
-
+   
     const { email, otp } = req.body;
 
     // Check fields
@@ -143,11 +125,12 @@ const verifySignupOtp = async (req, res) => {
     }
 
     // Create user
-    const user = await User.create({
-      name: otpRecord.name,
-      email: otpRecord.email,
-      password: otpRecord.password,
-    });
+   const user = await User.create({
+  name: otpRecord.name,
+  email: otpRecord.email,
+  password: otpRecord.password,
+  authProvider: "local",
+});
 
     console.log("USER CREATED:", user);
 
@@ -166,7 +149,7 @@ const verifySignupOtp = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("========== VERIFY SIGNUP OTP ERROR ==========");
+ 
     console.error(error);
     console.error("MESSAGE:", error.message);
 
@@ -176,90 +159,120 @@ const verifySignupOtp = async (req, res) => {
     });
   }
 };
-// ================= LOGIN =================
 
-// ================= LOGIN =================
 
-const login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({
-        message: "Email and password are required",
-      });
-    }
+  const login = async (req, res) => {
+    try {
+      const { email, password } = req.body;
 
-    const cleanEmail = email.trim().toLowerCase();
+      // ================= VALIDATION =================
 
-    const user = await User.findOne({
-      email: cleanEmail,
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
-    }
-
-    // Google users don't have a normal password
-    if (!user.password) {
-      return res.status(400).json({
-        message: "This account uses Google login. Please continue with Google.",
-      });
-    }
-
-    const isMatch = await bcrypt.compare(
-      password,
-      user.password
-    );
-
-    if (!isMatch) {
-      return res.status(401).json({
-        message: "Invalid email or password",
-      });
-    }
-
-    if (user.isBlocked) {
-      return res.status(403).json({
-        message: "Your account has been blocked",
-      });
-    }
-
-    const token = jwt.sign(
-      {
-        userId: user._id.toString(),
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "1d",
+      if (!email || !password) {
+        return res.status(400).json({
+          message: "Email and password are required",
+        });
       }
-    );
+
+      // ================= CLEAN EMAIL =================
+
+      const cleanEmail = email.trim().toLowerCase();
+
+      // ================= FIND USER =================
+
+      const user = await User.findOne({
+        email: cleanEmail,
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+
+      // ================= GOOGLE USER =================
+
+      if (!user.password) {
+        return res.status(400).json({
+          message:
+            "This account uses Google login. Please continue with Google.",
+        });
+      }
+
+      // ================= CHECK PASSWORD =================
+
+      const isMatch = await bcrypt.compare(
+        password,
+        user.password
+      );
+
+      if (!isMatch) {
+        return res.status(401).json({
+          message: "Invalid email or password",
+        });
+      }
+
+      // ================= CHECK BLOCKED =================
+
+      if (user.isBlocked) {
+        return res.status(403).json({
+          message: "Your account has been blocked",
+        });
+      }
+
+    
+
+      // ================= CREATE JWT =================
+
+  const token = jwt.sign(
+    { userId: user._id },
+    process.env.JWT_SECRET,
+    { expiresIn: "1d" }
+  );
+      // ================= RESPONSE =================
+
+      return res.status(200).json({
+    message: "Login successful",
+
+    token,
+
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone || "",
+      profileImage: user.profileImage || "",
+    },
+  });
+    } catch (error) {
+      console.error("Login error:", error);
+
+      return res.status(500).json({
+        message: "Login failed",
+      });
+    }
+  };
+
+
+
+const logout = (req, res) => {
+  req.session.destroy((error) => {
+    if (error) {
+      console.error("Logout error:", error);
+
+      return res.status(500).json({
+        message: "Logout failed",
+      });
+    }
+
+    res.clearCookie("connect.sid");
 
     return res.status(200).json({
-      message: "Login successful",
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone || "",
-        profileImage: user.profileImage || "",
-      },
+      message: "Logout successful",
     });
-
-  } catch (error) {
-    console.error("Login error:", error);
-
-    return res.status(500).json({
-      message: "Login failed",
-    });
-  }
+  });
 };
 
-// ================= FORGOT PASSWORD =================
-
-// ================= FORGOT PASSWORD =================
 
 const forgotPassword = async (req, res) => {
   try {
@@ -327,9 +340,7 @@ const forgotPassword = async (req, res) => {
 };
 
 
-// ================= VERIFY FORGOT PASSWORD OTP =================
 
-// ================= VERIFY FORGOT PASSWORD OTP =================
 
 const verifyForgotPasswordOtp = async (req, res) => {
   try {
@@ -386,7 +397,7 @@ const verifyForgotPasswordOtp = async (req, res) => {
   }
 };
 
-// ================= RESET PASSWORD =================
+
 
 const resetPassword = async (req, res) => {
   try {
@@ -440,7 +451,7 @@ const resetPassword = async (req, res) => {
   }
 };
 
-// ================= GOOGLE LOGIN =================
+
 
 const googleLogin = async (req, res) => {
   try {
@@ -476,40 +487,62 @@ const googleLogin = async (req, res) => {
       });
     }
 
-    // Find existing user
-    let user = await User.findOne({ email });
+    const cleanEmail = email.trim().toLowerCase();
 
-    // Create new user if not found
+    // Find existing user
+    let user = await User.findOne({
+      email: cleanEmail,
+    });
+
+    // ==============================
+    // CREATE NEW GOOGLE USER
+    // ==============================
     if (!user) {
       user = await User.create({
         name: name || "Google User",
-        email,
+        email: cleanEmail,
         googleId,
         authProvider: "google",
       });
 
-      console.log("GOOGLE USER CREATED:", email);
-    } else {
-      // Existing user
-      user.googleId = googleId;
+      console.log("GOOGLE USER CREATED:", cleanEmail);
+    }
 
-      if (user.authProvider !== "google") {
-        user.authProvider = "google";
+    // ==============================
+    // EXISTING USER
+    // ==============================
+    else {
+      // If the account was created using
+      // email/password, don't convert it
+      // into a Google account automatically.
+      if (user.authProvider === "local") {
+        return res.status(400).json({
+          message:
+            "An account with this email already exists. Please login with email and password.",
+        });
       }
+
+      // Existing Google account
+      user.googleId = googleId;
+      user.authProvider = "google";
 
       await user.save();
 
-      console.log("GOOGLE USER FOUND:", email);
+      console.log("GOOGLE USER FOUND:", cleanEmail);
     }
 
-    // Check blocked account
+    // ==============================
+    // CHECK BLOCKED ACCOUNT
+    // ==============================
     if (user.isBlocked) {
       return res.status(403).json({
         message: "Your account has been blocked",
       });
     }
 
-    // Create JWT
+    // ==============================
+    // CREATE JWT
+    // ==============================
     const token = jwt.sign(
       {
         userId: user._id,
@@ -520,6 +553,9 @@ const googleLogin = async (req, res) => {
       }
     );
 
+    // ==============================
+    // SEND RESPONSE
+    // ==============================
     return res.status(200).json({
       message: "Google login successful",
       token,
@@ -527,9 +563,11 @@ const googleLogin = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        phone: user.phone || "",
+        profileImage: user.profileImage || "",
+        authProvider: user.authProvider,
       },
     });
-
   } catch (error) {
     console.error("Google login error:", error);
 
@@ -539,6 +577,7 @@ const googleLogin = async (req, res) => {
   }
 };
 
+
 export {
   signup,
   verifySignupOtp,
@@ -547,4 +586,5 @@ export {
   forgotPassword,
   verifyForgotPasswordOtp,
   resetPassword,
+  logout,
 };;

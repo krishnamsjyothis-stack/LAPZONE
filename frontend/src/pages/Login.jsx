@@ -10,75 +10,82 @@
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [showErrorModal, setShowErrorModal] = useState(false);
+    const [errorMessage, setErrorMessage] = useState(""); 
+
 
     const handleLogin = async (e) => {
-      e.preventDefault();
+  e.preventDefault();
 
-      const cleanEmail = email.trim().toLowerCase();
+  const cleanEmail = email.trim().toLowerCase();
 
-      // ================= VALIDATION =================
+  // ================= VALIDATION =================
 
-      if (!cleanEmail) {
-        alert("Please enter your email");
-        return;
-      }
+  if (!cleanEmail) {
+   setErrorMessage("Please enter your email");
+   setShowErrorModal(true);
+return;
+  }
 
-      if (!password) {
-        alert("Please enter your password");
-        return;
-      }
+  if (!password) {
+    setErrorMessage("Please enter your password");
+    setShowErrorModal(true);
+return;
+  }
 
-      if (!cleanEmail.includes("@")) {
-        alert("Please enter a valid email");
-        return;
-      }
+  if (!cleanEmail.includes("@")) {
+    setErrorMessage("Please enter a valid email");
+     setShowErrorModal(true);
+return;
+  }
 
-      try {
-        setLoading(true);
+  try {
+    setLoading(true);
 
-        // ================= LOGIN API =================
+    // ================= LOGIN API =================
 
-        const response = await api.post("/auth/login", {
-          email: cleanEmail,
-          password,
-        });
+    const response = await api.post("/auth/login", {
+      email: cleanEmail,
+      password,
+    });
 
-        console.log("LOGIN RESPONSE:", response.data);
+    console.log("LOGIN:", response.data);
 
-        // ================= SAVE TOKEN =================
+    // ================= SAVE USER =================
 
-        localStorage.setItem(
-          "token",
-          response.data.token
-        );
+localStorage.setItem(
+  "token",
+  response.data.token
+);
 
-        // Save user information if needed later
-        localStorage.setItem(
-          "user",
-          JSON.stringify(response.data.user)
-        );
+localStorage.setItem(
+  "user",
+  JSON.stringify(response.data.user)
+);
 
-        alert("Login successful!");
+setShowSuccessModal(true);
 
-        // Later we can change this to your home page
-        navigate("/");
+    // ================= GO HOME =================
 
-      } catch (error) {
-        console.error(
-          "LOGIN ERROR:",
-          error.response?.data || error.message
-        );
+    navigate("/");
 
-        alert(
-          error.response?.data?.message ||
-            "Login failed"
-        );
+  } catch (error) {
+    console.error(
+      "LOGIN ERROR:",
+      error.response?.data || error.message
+    );
 
-      } finally {
-        setLoading(false);
-      }
-    };
+    alert(
+      error.response?.data?.message ||
+        "Login failed"
+    );
+      setShowErrorModal(true);
 
+  } finally {
+    setLoading(false);
+  }
+};
     return (
       <div className="min-h-screen bg-[#151820] flex">
 
@@ -189,6 +196,76 @@
               </p>
 
             </div>
+
+            {/* ================= LOGIN SUCCESS MODAL ================= */}
+
+{showSuccessModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+
+    <div className="w-full max-w-xl bg-[#151820] border border-[#303642] rounded-3xl p-8 shadow-2xl">
+
+      {/* CLOSE */}
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => {
+            setShowSuccessModal(false);
+            navigate("/");
+          }}
+          className="text-gray-400 hover:text-white text-3xl"
+        >
+          ×
+        </button>
+      </div>
+
+      {/* SUCCESS ICON */}
+
+      <div className="flex justify-center mt-1">
+        <div className="w-20 h-20 rounded-full bg-[#451724] flex items-center justify-center">
+          <span className="text-5xl text-[#c51f35]">
+            ✓
+          </span>
+        </div>
+      </div>
+
+      {/* TITLE */}
+
+      <h2 className="text-center text-4xl font-bold text-white mt-8">
+        LOGIN SUCCESSFUL
+      </h2>
+
+      {/* MESSAGE */}
+
+      <div className="mt-8 bg-[#11151d] rounded-2xl p-6 text-center">
+
+        <h3 className="text-xl font-semibold text-white">
+          Welcome back!
+        </h3>
+
+        <p className="text-gray-400 mt-2">
+          You have successfully logged in to LAPZONE.
+        </p>
+
+      </div>
+
+      {/* BUTTON */}
+
+      <button
+        type="button"
+        onClick={() => {
+          setShowSuccessModal(false);
+          navigate("/");
+        }}
+        className="w-full h-14 mt-8 rounded-xl bg-[#c51f35] hover:bg-[#b51a2b] text-white font-semibold tracking-wide"
+      >
+        CONTINUE
+      </button>
+
+    </div>
+
+  </div>
+)}
 
 
             {/* ================= FORM ================= */}
@@ -383,7 +460,7 @@
         alert("Google login failed");
       }}
 
-      width="100%"
+      width="320"
     />
   </div>
 
@@ -419,9 +496,81 @@
           </div>
 
         </div>
+        {/* ================= LOGIN FAILED MODAL ================= */}
+
+{showErrorModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+
+    <div className="w-full max-w-xl bg-[#151820] border border-[#303642] rounded-3xl p-8 shadow-2xl">
+
+      {/* CLOSE BUTTON */}
+
+      <div className="flex justify-end">
+
+        <button
+          type="button"
+          onClick={() => setShowErrorModal(false)}
+          className="text-gray-400 hover:text-white text-3xl"
+        >
+          ×
+        </button>
+
+      </div>
+
+      {/* ERROR ICON */}
+
+      <div className="flex justify-center mt-1">
+
+        <div className="w-20 h-20 rounded-full bg-[#451724] flex items-center justify-center">
+
+          <span className="text-5xl text-[#c51f35]">
+            !
+          </span>
+
+        </div>
+
+      </div>
+
+      {/* TITLE */}
+
+      <h2 className="text-center text-4xl font-bold text-white mt-8">
+        LOGIN FAILED
+      </h2>
+
+      {/* MESSAGE */}
+
+      <div className="mt-8 bg-[#11151d] rounded-2xl p-6 text-center">
+
+        <h3 className="text-xl font-semibold text-white">
+          Unable to login
+        </h3>
+
+        <p className="text-gray-400 mt-2">
+          {errorMessage}
+        </p>
+
+      </div>
+
+      {/* OK BUTTON */}
+
+      <button
+        type="button"
+        onClick={() => setShowErrorModal(false)}
+        className="w-full h-14 mt-8 rounded-xl bg-[#c51f35] hover:bg-[#b51a2b] text-white font-semibold tracking-wide"
+      >
+        TRY AGAIN
+      </button>
+
+    </div>
+
+  </div>
+)}
 
       </div>
     );
+    
+
+    
   }
 
   export default Login;

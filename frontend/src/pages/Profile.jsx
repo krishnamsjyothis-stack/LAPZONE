@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import profileSchema from "../validation/profileValidation";
 import api from "../api/axios";
 
 function Profile() {
@@ -79,15 +80,21 @@ useEffect(() => {
 
   // ================= LOGOUT =================
 
-  const handleLogout = () => {
+const handleLogout = async () => {
+  try {
+    await api.post("/auth/logout");
+
     localStorage.removeItem("token");
     localStorage.removeItem("user");
 
-    alert("Logged out successfully");
-
     navigate("/login");
-  };
-
+  } catch (error) {
+    console.error(
+      "Logout error:",
+      error.response?.data || error.message
+    );
+  }
+};
   // ================= LOADING =================
 
   if (loading) {
@@ -306,8 +313,8 @@ useEffect(() => {
 
                 <div>
                   <p className="text-white text-lg">
-                    0
-                  </p>
+                      {addresses.length}
+                   </p>
 
                   <p className="text-gray-400 text-[9px] uppercase">
                     Saved Addresses
@@ -458,17 +465,25 @@ useEffect(() => {
 
               {/* ================= EDIT ================= */}  
 
-              <div className="flex justify-end mt-7">
+             {/* ================= PROFILE ACTIONS ================= */}
 
-                <button
-                  onClick={() => navigate("/profile/edit")}
-                  className="px-8 h-11 rounded-xl bg-[#c51f35] hover:bg-[#b51a2b] text-white text-sm font-medium transition"
-                >
-                  Edit
-                </button>
+<div className="flex justify-end gap-4 mt-7">
 
-              </div>
+  <button
+    onClick={() => navigate("/change-password")}
+    className="px-6 h-11 rounded-xl border border-[#c51f35] text-[#c51f35] hover:bg-[#c51f35] hover:text-white text-sm font-medium transition"
+  >
+    Change Password
+  </button>
 
+  <button
+    onClick={() => navigate("/profile/edit")}
+    className="px-8 h-11 rounded-xl bg-[#c51f35] hover:bg-[#b51a2b] text-white text-sm font-medium transition"
+  >
+    Edit
+  </button>
+
+</div>
             </div>
 
           </section>

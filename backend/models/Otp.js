@@ -24,7 +24,7 @@ const otpSchema = new mongoose.Schema(
 
     purpose: {
       type: String,
-      enum: ["signup", "forgot-password"],
+      enum: ["signup", "forgot-password", "change-email"],
       required: true,
     },
 
@@ -38,4 +38,8 @@ const otpSchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.model("Otp", otpSchema);
+const Otp =
+  mongoose.models.Otp ||
+  mongoose.model("Otp", otpSchema);
+
+export default Otp;

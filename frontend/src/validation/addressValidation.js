@@ -1,0 +1,39 @@
+import { z } from "zod";
+
+const addressSchema = z.object({
+  fullName: z
+    .string()
+    .trim()
+    .min(3, "Full name must be at least 3 characters"),
+
+  phone: z
+    .string()
+    .trim()
+    .length(10, "Phone number must be exactly 10 digits")
+    .regex(/^\d+$/, "Phone number must contain only numbers"),
+
+  addressLine: z
+    .string()
+    .trim()
+    .min(5, "Address must be at least 5 characters"),
+
+  city: z
+    .string()
+    .trim()
+    .min(2, "City is required"),
+
+  state: z
+    .string()
+    .trim()
+    .min(2, "State is required"),
+
+  pincode: z
+    .string()
+    .trim()
+    .length(6, "Pincode must be exactly 6 digits")
+    .regex(/^\d+$/, "Pincode must contain only numbers"),
+
+  isDefault: z.boolean(),
+});
+
+export default addressSchema;

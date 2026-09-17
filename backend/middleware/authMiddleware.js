@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 
 const authMiddleware = (req, res, next) => {
   try {
-    // Get Authorization header
+  
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
@@ -11,8 +11,7 @@ const authMiddleware = (req, res, next) => {
       });
     }
 
-    // Expected format:
-    // Authorization: Bearer TOKEN
+
     const token = authHeader.split(" ")[1];
 
     if (!token) {
@@ -21,13 +20,13 @@ const authMiddleware = (req, res, next) => {
       });
     }
 
-    // Verify token
+  
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET
     );
 
-    // Store user ID in request
+   
     req.userId = decoded.userId;
 
     next();
