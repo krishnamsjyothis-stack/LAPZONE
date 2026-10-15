@@ -1,7 +1,9 @@
+
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL:
+    import.meta.env.VITE_API_URL || "http://localhost:5000/api",
   withCredentials: true,
 });
 
@@ -13,7 +15,7 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
-  // Handle JSON / FormData
+  // Handle JSON and FormData
   if (config.data instanceof FormData) {
     delete config.headers["Content-Type"];
   } else {
@@ -25,15 +27,13 @@ api.interceptors.request.use((config) => {
 
 // Handle blocked users
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
     if (
-  error.response?.status === 403 &&
-  error.response?.data?.message ===
-    "Your account has been blocked"
-) {
+      error.response?.status === 403 &&
+      error.response?.data?.message ===
+        "Your account has been blocked"
+    ) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
 

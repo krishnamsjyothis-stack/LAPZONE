@@ -825,7 +825,7 @@ function Products() {
                     ? ""
                     : image.startsWith("http")
                     ? image
-                    : `http://localhost:5000${image}`;
+                    : `https://lapzone-backend-psqn.onrender.com${image}`;
 
                   return (
                     <div

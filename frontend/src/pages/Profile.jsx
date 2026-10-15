@@ -134,7 +134,7 @@ const handleLogout = async () => {
 
       {user?.profileImage ? (
         <img
-          src={`http://localhost:5000${user.profileImage}`}
+          src={`https://lapzone-backend-psqn.onrender.com${user.profileImage}`}
           alt="Profile"
           className="w-full h-full object-cover"
         />

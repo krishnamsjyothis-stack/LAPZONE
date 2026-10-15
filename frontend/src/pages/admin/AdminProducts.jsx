@@ -184,7 +184,7 @@ const handleClear = () => {
       product.images &&
       product.images.length > 0
     ) {
-      return `http://localhost:5000${product.images[0]}`;
+      return `https://lapzone-backend-psqn.onrender.com${product.images[0]}`;
     }
 
     return null;

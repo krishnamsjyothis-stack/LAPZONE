@@ -79,7 +79,7 @@ const getProductImage = (image) => {
 
   if (/^https?:\/\//i.test(image)) return image;
 
-  return `http://localhost:5000${
+  return `https://lapzone-backend-psqn.onrender.com${
     image.startsWith("/") ? image : `/${image}`
   }`;
 };

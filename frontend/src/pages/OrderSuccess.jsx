@@ -356,7 +356,7 @@ function OrderSuccess() {
                   <div className="w-12 h-12 rounded-md bg-[#1d2530] overflow-hidden flex items-center justify-center flex-shrink-0">
                     {order.items[0].productImage ? (
                       <img
-                        src={`http://localhost:5000${order.items[0].productImage}`}
+                        src={`https://lapzone-backend-psqn.onrender.com${order.items[0].productImage}`}
                         alt={order.items[0].productName}
                         className="w-full h-full object-contain"
                       />

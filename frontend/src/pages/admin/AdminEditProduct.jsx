@@ -378,7 +378,7 @@ const handleSubmit = async (e) => {
             className="relative border border-gray-300 rounded-lg overflow-hidden bg-white"
           >
             <img
-              src={`http://localhost:5000${image}`}
+              src={`https://lapzone-backend-psqn.onrender.com${image}`}
               alt={`Product ${index + 1}`}
               className="w-full h-32 object-contain"
             />

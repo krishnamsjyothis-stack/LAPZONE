@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../api/axios";
 
-const BACKEND_URL = "http://localhost:5000";
+const BACKEND_URL = "https://lapzone-backend-psqn.onrender.com";
 
 function getImageUrl(image) {
   if (!image || typeof image !== "string") return "";

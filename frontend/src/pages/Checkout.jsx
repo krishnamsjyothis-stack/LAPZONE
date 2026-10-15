@@ -2228,7 +2228,7 @@ const subtotal = cart.items.reduce(
 
                             <img
 
-                              src={`http://localhost:5000${item.productId.images[0]}`}
+                              src={`https://lapzone-backend-psqn.onrender.com${item.productId.images[0]}`}
 
                               alt={
 

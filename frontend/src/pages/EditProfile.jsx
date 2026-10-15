@@ -54,7 +54,7 @@ function EditProfile() {
         // Show existing profile image
         if (user.profileImage) {
           setPreviewImage(
-            `http://localhost:5000${user.profileImage}`
+            `https://lapzone-backend-psqn.onrender.com${user.profileImage}`
           );
         }
       } catch (error) {
