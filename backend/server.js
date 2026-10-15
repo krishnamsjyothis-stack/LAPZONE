@@ -1,4 +1,4 @@
-import dotenv from "dotenv";
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import session from "express-session";
@@ -12,15 +12,27 @@ import addressRoutes from "./routes/addressRoutes.js";
 
 import adminAuthRoutes from "./routes/adminAuthRoutes.js";
 import adminUserRoutes from "./routes/adminUserRoutes.js";
+import adminOrderRoutes from "./routes/adminOrderRoutes.js";
 
 import productRoutes from "./routes/productRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
+import wishlistRoutes from "./routes/wishlistRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
+import adminInventoryRoutes from "./routes/adminInventoryRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
+import walletRoutes from "./routes/walletRoutes.js";
+import couponRoutes from "./routes/couponRoutes.js";
+import offerRoutes from "./routes/offerRoutes.js";
+import reportRoutes from "./routes/reportRoutes.js";
+import referralRoutes from "./routes/referralRoutes.js";
+import adminDashboardRoutes from "./routes/adminDashboardRoutes.js";
+import adminWalletRoutes from "./routes/adminWalletRoutes.js";
+import reviewRoutes from "./routes/reviewRoutes.js";
+import adminReviewRoutes from "./routes/adminReviewRoutes.js";
 
-dotenv.config();
 
 const app = express();
-
 // ================= CORS =================
 
 app.use(
@@ -57,7 +69,7 @@ app.use(
 
 connectDB();
 
-// ================= ROUTES =================
+// ================= USER ROUTES =================
 
 // User authentication
 app.use("/api/auth", authRoutes);
@@ -67,12 +79,6 @@ app.use("/api/user", userRoutes);
 
 // OTP
 app.use("/api/otp", otpRoutes);
-
-// Admin authentication
-app.use("/api/admin", adminAuthRoutes);
-
-// Admin user management
-app.use("/api/admin", adminUserRoutes);
 
 // Address
 app.use("/api/address", addressRoutes);
@@ -86,6 +92,47 @@ app.use("/api/cart", cartRoutes);
 // Categories
 app.use("/api/categories", categoryRoutes);
 
+// Wishlist
+app.use("/api/wishlist", wishlistRoutes);
+
+// User orders
+app.use("/api/orders", orderRoutes);
+
+app.use("/api/reports", reportRoutes);
+
+// Payment
+app.use("/api/payment", paymentRoutes);
+
+app.use("/api/wallet", walletRoutes);
+
+app.use("/api/coupon", couponRoutes);
+
+app.use("/api/referrals", referralRoutes);
+
+
+
+// ================= ADMIN ROUTES =================
+
+// Admin authentication
+app.use("/api/admin", adminAuthRoutes);
+
+// Admin user management
+app.use("/api/admin", adminUserRoutes);
+
+// Admin order management
+app.use("/api/admin/orders", adminOrderRoutes);
+
+app.use("/api/admin/inventory", adminInventoryRoutes);
+
+app.use("/api/offers", offerRoutes);
+
+app.use("/api/admin/dashboard", adminDashboardRoutes);
+
+app.use("/api/admin/wallets", adminWalletRoutes);
+
+app.use("/api/reviews", reviewRoutes);
+
+app.use("/api/admin/reviews", adminReviewRoutes);
 // ================= TEST ROUTES =================
 
 app.get("/api/users", (req, res) => {
@@ -98,6 +145,12 @@ app.get("/test-category", (req, res) => {
   res.send("Category route test is working");
 });
 
+app.get("/test-wishlist", (req, res) => {
+  res.json({
+    message: "Wishlist route is connected successfully",
+  });
+});
+
 // ================= HOME =================
 
 app.get("/", (req, res) => {
@@ -105,7 +158,8 @@ app.get("/", (req, res) => {
 });
 
 // ================= START SERVER =================
-    
-app.listen(5000, () => {
-  console.log("Server running on http://localhost:5000");
+const PORT = 5000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });

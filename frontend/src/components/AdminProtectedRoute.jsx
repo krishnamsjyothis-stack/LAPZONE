@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import api from "../api/axios";
 
-function AdminProtectedRoute({ children }) {
+function AdminProtectedRoute() {
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
 
@@ -37,7 +37,7 @@ function AdminProtectedRoute({ children }) {
     return <Navigate to="/admin/login" replace />;
   }
 
-  return children;
+  return <Outlet />;
 }
 
 export default AdminProtectedRoute;

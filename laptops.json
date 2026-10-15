@@ -1,0 +1,222 @@
+[
+  {
+    "name": "ASUS ROG Strix G15 Gaming Laptop",
+    "brand": "ASUS",
+    "category": "Gaming",
+    "description": "High-performance gaming laptop equipped with AMD Ryzen 7 and RTX graphics for immersive gaming.",
+    "price": 129990,
+    "stock": 14,
+    "specifications": {
+      "processor": "AMD Ryzen 7 6800H",
+      "ram": "16GB DDR5",
+      "storage": "1TB PCIe 4.0 NVMe SSD",
+      "display": "15.6-inch Full HD 144Hz Anti-Glare",
+      "graphics": "NVIDIA GeForce RTX 3060 6GB VRAM",
+      "operatingSystem": "Windows 11 Home"
+    },
+    "images": [
+      "https://images.unsplash.com/photo-1603302576837-37561b2e2302?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1541807084-5c52b6b3adef?auto=format&fit=crop&w=1000&q=80"
+    ],
+    "isActive": true
+  },
+  {
+    "name": "Acer Predator Helios 300 Gaming Laptop",
+    "brand": "Acer",
+    "category": "Gaming",
+    "description": "Unleash gaming dominance with extreme processing power and dual AeroBlade 3D cooling fans.",
+    "price": 115000,
+    "stock": 8,
+    "specifications": {
+      "processor": "Intel Core i7-12700H",
+      "ram": "16GB DDR5",
+      "storage": "512GB NVMe SSD",
+      "display": "15.6-inch QHD 165Hz 3ms IPS",
+      "graphics": "NVIDIA GeForce RTX 3050 Ti 4GB",
+      "operatingSystem": "Windows 11 Home"
+    },
+    "images": [
+      "https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?auto=format&fit=crop&w=1000&q=80"
+    ],
+    "isActive": true
+  },
+  {
+    "name": "Dell G15 Gaming Laptop",
+    "brand": "Dell",
+    "category": "Gaming",
+    "description": "Reliable gaming powerhouse featuring advanced thermal design and game-shift technology.",
+    "price": 94990,
+    "stock": 12,
+    "specifications": {
+      "processor": "AMD Ryzen 5 6600H",
+      "ram": "16GB DDR5",
+      "storage": "512GB SSD",
+      "display": "15.6-inch FHD 120Hz 250 nits",
+      "graphics": "NVIDIA GeForce RTX 3050 4GB",
+      "operatingSystem": "Windows 11 Home"
+    },
+    "images": [
+      "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1603302576837-37561b2e2302?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1541807084-5c52b6b3adef?auto=format&fit=crop&w=1000&q=80"
+    ],
+    "isActive": true
+  },
+  {
+    "name": "Lenovo ThinkPad E14 Business Laptop",
+    "brand": "Lenovo",
+    "category": "Business",
+    "description": "Durable, secure, and professional enterprise laptop built for productivity on the go.",
+    "price": 72990,
+    "stock": 20,
+    "specifications": {
+      "processor": "Intel Core i5-1235U",
+      "ram": "16GB DDR4",
+      "storage": "512GB SSD",
+      "display": "14-inch WUXGA (1920 x 1200) IPS Anti-Glare",
+      "graphics": "Intel Iris Xe Graphics",
+      "operatingSystem": "Windows 11 Pro"
+    },
+    "images": [
+      "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&w=1000&q=80"
+    ],
+    "isActive": true
+  },
+  {
+    "name": "HP Latitude 3420 Business Laptop",
+    "brand": "Dell",
+    "category": "Business",
+    "description": "Essential business productivity machine featuring robust manageability and sleek design.",
+    "price": 68000,
+    "stock": 16,
+    "specifications": {
+      "processor": "Intel Core i5-1135G7",
+      "ram": "16GB RAM",
+      "storage": "512GB NVMe SSD",
+      "display": "14-inch HD (1366 x 768) Anti-Glare",
+      "graphics": "Intel Iris Xe Graphics",
+      "operatingSystem": "Windows 11 Pro"
+    },
+    "images": [
+      "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&w=1000&q=80"
+    ],
+    "isActive": true
+  },
+  {
+    "name": "HP Pavilion 14 Student Laptop",
+    "brand": "HP",
+    "category": "Student",
+    "description": "Lightweight, vibrant, and reliable laptop designed to keep up with college assignments and media.",
+    "price": 62990,
+    "stock": 25,
+    "specifications": {
+      "processor": "Intel Core i5-1235U",
+      "ram": "16GB DDR4",
+      "storage": "512GB SSD",
+      "display": "14-inch FHD IPS Micro-Edge",
+      "graphics": "Intel Iris Xe Graphics",
+      "operatingSystem": "Windows 11 Home"
+    },
+    "images": [
+      "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1522199755839-a2bacb67c546?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1000&q=80"
+    ],
+    "isActive": true
+  },
+  {
+    "name": "ASUS Vivobook 15 Student Laptop",
+    "brand": "ASUS",
+    "category": "Student",
+    "description": "Value-packed everyday laptop offering crisp visuals and fluid multitasking for academic success.",
+    "price": 49990,
+    "stock": 30,
+    "specifications": {
+      "processor": "AMD Ryzen 5 5600H",
+      "ram": "16GB DDR4",
+      "storage": "512GB NVMe SSD",
+      "display": "15.6-inch FHD Anti-Glare",
+      "graphics": "AMD Radeon Graphics",
+      "operatingSystem": "Windows 11 Home"
+    },
+    "images": [
+      "https://images.unsplash.com/photo-1522199755839-a2bacb67c546?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1000&q=80"
+    ],
+    "isActive": true
+  },
+  {
+    "name": "Lenovo IdeaPad Slim 3 Student Laptop",
+    "brand": "Lenovo",
+    "category": "Student",
+    "description": "Smart, slim, and budget-friendly laptop built for online classes, coding, and multitasking.",
+    "price": 42990,
+    "stock": 22,
+    "specifications": {
+      "processor": "Intel Core i3-1215U",
+      "ram": "8GB DDR4",
+      "storage": "512GB SSD",
+      "display": "15.6-inch FHD TN 250nits",
+      "graphics": "Intel UHD Graphics",
+      "operatingSystem": "Windows 11 Home"
+    },
+    "images": [
+      "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1522199755839-a2bacb67c546?auto=format&fit=crop&w=1000&q=80"
+    ],
+    "isActive": true
+  },
+  {
+    "name": "Apple MacBook Pro 14 Premium Laptop",
+    "brand": "Apple",
+    "category": "Premium",
+    "description": "Extraordinary performance and stunning Liquid Retina XDR display powered by the Apple M-series chip.",
+    "price": 194900,
+    "stock": 10,
+    "specifications": {
+      "processor": "Apple M3 Pro Chip",
+      "ram": "18GB Unified Memory",
+      "storage": "512GB SSD",
+      "display": "14.2-inch Liquid Retina XDR (3024 x 1964)",
+      "graphics": "14-core GPU",
+      "operatingSystem": "macOS"
+    },
+    "images": [
+      "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1000&q=80"
+    ],
+    "isActive": true
+  },
+  {
+    "name": "Dell XPS 13 Plus Premium Laptop",
+    "brand": "Dell",
+    "category": "Premium",
+    "description": "Futuristic design meets uncompromising performance with an OLED touch display and Intel Evo platform.",
+    "price": 159990,
+    "stock": 7,
+    "specifications": {
+      "processor": "Intel Core i7-1360P",
+      "ram": "16GB LPDDR5",
+      "storage": "1TB SSD",
+      "display": "13.4-inch 3.5K (3456 x 2160) OLED Touch",
+      "graphics": "Intel Iris Xe Graphics",
+      "operatingSystem": "Windows 11 Pro"
+    },
+    "images": [
+      "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?auto=format&fit=crop&w=1000&q=80"
+    ],
+    "isActive": true
+  }
+]

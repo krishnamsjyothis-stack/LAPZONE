@@ -5,11 +5,11 @@ import { OAuth2Client } from "google-auth-library";
 import User from "../models/User.js";
 import Otp from "../models/Otp.js";
 import sendEmail from "../utils/sendEmail.js";
-
+  import Referral from "../models/Referral.js";
 
 const signup = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, referralCode } = req.body;
 
     const cleanEmail = email.trim().toLowerCase();
 
@@ -32,15 +32,16 @@ const signup = async (req, res) => {
     await Otp.deleteMany({email: cleanEmail,purpose: "signup",});
 
     await Otp.create({
-      email: cleanEmail,
-      otp,
-      name,
-      password: hashedPassword,
-      purpose: "signup",
-      expiresAt: new Date(
-        Date.now() + 5 * 60 * 1000
-      ),
-    });
+  email: cleanEmail,
+  otp,
+  name,
+  password: hashedPassword,
+  referralCode: referralCode || null,
+  purpose: "signup",
+  expiresAt: new Date(
+    Date.now() + 5 * 60 * 1000
+  ),
+});
 
 
     await sendEmail(
@@ -132,6 +133,31 @@ const verifySignupOtp = async (req, res) => {
   authProvider: "local",
 });
 
+// ==============================
+// APPLY REFERRAL
+// ==============================
+
+if (otpRecord.referralCode) {
+  const referral = await Referral.findOne({
+    referralCode: otpRecord.referralCode.toUpperCase(),
+    isActive: true,
+    isUsed: false,
+    expiryDate: { $gte: new Date() },
+  });
+
+  if (referral) {
+    referral.referredUser = user._id;
+    referral.isUsed = true;
+
+    await referral.save();
+
+    console.log(
+      "REFERRAL APPLIED:",
+      referral.referralCode
+    );
+  }
+}
+
     console.log("USER CREATED:", user);
 
     // Delete OTP after successful signup
@@ -161,8 +187,7 @@ const verifySignupOtp = async (req, res) => {
 };
 
 
-
-  const login = async (req, res) => {
+ const login = async (req, res) => {
     try {
       const { email, password } = req.body;
 
@@ -216,7 +241,7 @@ const verifySignupOtp = async (req, res) => {
 
       if (user.isBlocked) {
         return res.status(403).json({
-          message: "Your account has been blocked",
+          message: "Your account has been blocked by the admin",
         });
       }
 
@@ -338,8 +363,6 @@ const forgotPassword = async (req, res) => {
     });
   }
 };
-
-
 
 
 const verifyForgotPasswordOtp = async (req, res) => {
@@ -497,39 +520,36 @@ const googleLogin = async (req, res) => {
     // ==============================
     // CREATE NEW GOOGLE USER
     // ==============================
-    if (!user) {
-      user = await User.create({
-        name: name || "Google User",
-        email: cleanEmail,
-        googleId,
-        authProvider: "google",
-      });
+   
+if (!user) {
+  // Create a new Google account
+  user = await User.create({
+    name: name || "Google User",
+    email: cleanEmail,
+    googleId,
+    authProvider: "google",
+  });
 
-      console.log("GOOGLE USER CREATED:", cleanEmail);
-    }
+  console.log("GOOGLE USER CREATED:", cleanEmail);
+} else {
+  // Don't link a different Google account to an
+  // account that is already linked to another Google ID.
+  if (user.googleId && user.googleId !== googleId) {
+    return res.status(409).json({
+      message:
+        "This account is linked to a different Google account.",
+    });
+  }
 
-    // ==============================
-    // EXISTING USER
-    // ==============================
-    else {
-      // If the account was created using
-      // email/password, don't convert it
-      // into a Google account automatically.
-      if (user.authProvider === "local") {
-        return res.status(400).json({
-          message:
-            "An account with this email already exists. Please login with email and password.",
-        });
-      }
+  // Link Google to the existing account.
+  // Preserve its password and authProvider.
+  if (!user.googleId) {
+    user.googleId = googleId;
+    await user.save();
+  }
 
-      // Existing Google account
-      user.googleId = googleId;
-      user.authProvider = "google";
-
-      await user.save();
-
-      console.log("GOOGLE USER FOUND:", cleanEmail);
-    }
+  console.log("GOOGLE USER FOUND:", cleanEmail);
+}
 
     // ==============================
     // CHECK BLOCKED ACCOUNT

@@ -1,141 +1,154 @@
+
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 
 function AdminUsers() {
-  const navigate = useNavigate();
-
-  // ================= STATE =================
-
   const [users, setUsers] = useState([]);
-
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState("newest");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const [page, setPage] = useState(1);
+  const limit = 5;
 
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    totalPages: 1,
-    totalUsers: 0,
-  });
-
-  const [loading, setLoading] = useState(false);
-
-  // ================= FETCH USERS =================
-
-  const fetchUsers = async () => {
+  // FETCH USERS
+  const fetchUsers = async (searchValue = "", page = 1) => {
     try {
       setLoading(true);
+      setError("");
 
       const response = await api.get("/admin/users", {
         params: {
-            search: searchQuery,
+          search: searchValue,
           page,
-          limit: 10,
+          limit,
+          sort: "newest",
         },
       });
 
-      console.log("USERS:", response.data);
+      const data = response.data;
+      const pagination = data.pagination || {};
 
-      setUsers(response.data.users || []);
-
-      setPagination(
-        response.data.pagination || {
-          currentPage: 1,
-          totalPages: 1,
-          totalUsers: 0,
-        }
+      setUsers(data.users || []);
+      setCurrentPage(pagination.currentPage || page);
+      setTotalPages(pagination.totalPages || 1);
+      setTotalUsers(
+        pagination.totalUsers ?? data.users?.length ?? 0
       );
-    } catch (error) {
+    } catch (err) {
       console.error(
-        "FETCH USERS ERROR:",
-        error.response?.data || error.message
+        "Failed to fetch users:",
+        err.response?.data || err.message
+      );
+
+      setError(
+        err.response?.data?.message || "Failed to fetch users"
       );
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchUsers("", 1);
+  }, []);
 
+  // SEARCH
+  const handleSearch = () => {
+    setCurrentPage(1);
+    fetchUsers(search.trim(), 1);
+  };
 
-// ================= FETCH USERS =================
+  const handleClear = () => {
+    setSearch("");
+    setStatusFilter("all");
+    setSortOrder("newest");
+    setCurrentPage(1);
+    fetchUsers("", 1);
+  };
 
-useEffect(() => {
-  fetchUsers();
-}, [page, searchQuery]);
+  // BLOCK / UNBLOCK USER
+  const handleToggleBlock = async (user) => {
+    const action = user.isBlocked ? "unblock" : "block";
 
-// ================= SEARCH =================
-const handleSearch = (e) => {
-  e.preventDefault();
-
-  setPage(1);
-  setSearchQuery(search);
-};
-// ================= CLEAR SEARCH =================
-
-const handleClear = () => {
-  setSearch("");
-  setSearchQuery("");
-  setPage(1);
-};
-  // ================= BLOCK USER =================
-
-  const handleBlock = async (id) => {
-    const confirmBlock = window.confirm(
-      "Are you sure you want to block this user?"
+    const confirmed = window.confirm(
+      `Are you sure you want to ${action} this user?`
     );
 
-    if (!confirmBlock) return;
+    if (!confirmed) return;
 
     try {
-      await api.patch(`/admin/users/${id}/block`);
+      setError("");
+      setSuccess("");
 
-      alert("User blocked successfully");
-
-      fetchUsers();
-    } catch (error) {
-      console.error(
-        "BLOCK ERROR:",
-        error.response?.data || error.message
+      await api.patch(
+        `/admin/users/${user._id}/${action}`,
+        { isBlocked: !user.isBlocked }
       );
 
-      alert(
-        error.response?.data?.message ||
-          "Failed to block user"
+      setSuccess(`User ${action}ed successfully`);
+      await fetchUsers(search.trim(), currentPage);
+    } catch (err) {
+      console.error(
+        `Failed to ${action} user:`,
+        err.response?.data || err.message
+      );
+
+      setError(
+        err.response?.data?.message ||
+          `Failed to ${action} user`
       );
     }
   };
 
-  // ================= UNBLOCK USER =================
+  // PAGINATION
+  const goToPage = (page) => {
+    if (page < 1 || page > totalPages) return;
 
-  const handleUnblock = async (id) => {
-    const confirmUnblock = window.confirm(
-      "Are you sure you want to unblock this user?"
-    );
-
-    if (!confirmUnblock) return;
-
-    try {
-      await api.patch(`/admin/users/${id}/unblock`);
-
-      alert("User unblocked successfully");
-
-      fetchUsers();
-    } catch (error) {
-      console.error(
-        "UNBLOCK ERROR:",
-        error.response?.data || error.message
-      );
-
-      alert(
-        error.response?.data?.message ||
-          "Failed to unblock user"
-      );
-    }
+    setCurrentPage(page);
+    fetchUsers(search.trim(), page);
   };
 
-  // ================= STATISTICS =================
+  // CLIENT-SIDE FILTER AND SORT
+  // Applies only to users loaded for the current server page.
+  const displayedUsers = [...users]
+    .filter((user) => {
+      if (statusFilter === "active") {
+        return !user.isBlocked;
+      }
+
+      if (statusFilter === "blocked") {
+        return user.isBlocked;
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortOrder === "oldest") {
+        return (
+          new Date(a.createdAt || 0) -
+          new Date(b.createdAt || 0)
+        );
+      }
+
+      if (sortOrder === "name-asc") {
+        return (a.name || "").localeCompare(b.name || "");
+      }
+
+      if (sortOrder === "name-desc") {
+        return (b.name || "").localeCompare(a.name || "");
+      }
+
+      return (
+        new Date(b.createdAt || 0) -
+        new Date(a.createdAt || 0)
+      );
+    });
 
   const activeUsers = users.filter(
     (user) => !user.isBlocked
@@ -145,576 +158,384 @@ const handleClear = () => {
     (user) => user.isBlocked
   ).length;
 
-  // ================= UI =================
-
   return (
-    <div className="min-h-screen bg-[#161a22] text-white flex">
-
-      {/* =====================================================
-          SIDEBAR
-      ===================================================== */}
-
-      <aside className="hidden md:flex w-64 bg-[#384358] min-h-screen flex-col">
-
-        {/* LOGO */}
-
-        <div className="px-6 py-6 border-b border-white/10">
-
-          <h1 className="text-2xl font-black tracking-tight">
-            LAPZONE
-          </h1>
-
-          <p className="text-xs text-gray-300 mt-1">
-            ADMIN PANEL
-          </p>
-
-        </div>
-
-        {/* NAVIGATION */}
-
-        <nav className="flex-1 px-4 py-6">
-
-          <button
-            onClick={() =>
-              navigate("/admin/dashboard")
-            }
-            className="w-full text-left px-4 py-3 rounded-lg text-gray-300 hover:bg-white/10 mb-2"
-          >
-            Dashboard
-          </button>
-
-          <button
-            className="w-full text-left px-4 py-3 rounded-lg bg-[#b91f35] text-white mb-2"
-          >
-            Users
-          </button>
-
-          <button className="w-full text-left px-4 py-3 rounded-lg text-gray-300 hover:bg-white/10 mb-2">
-            Products
-          </button>
-
-          <button className="w-full text-left px-4 py-3 rounded-lg text-gray-300 hover:bg-white/10 mb-2">
-            Categories
-          </button>
-
-          <button className="w-full text-left px-4 py-3 rounded-lg text-gray-300 hover:bg-white/10 mb-2">
-            Orders
-          </button>
-
-          <button className="w-full text-left px-4 py-3 rounded-lg text-gray-300 hover:bg-white/10 mb-2">
-            Reviews
-          </button>
-
-          <button className="w-full text-left px-4 py-3 rounded-lg text-gray-300 hover:bg-white/10 mb-2">
-            Coupons
-          </button>
-
-        </nav>
-
-        {/* BOTTOM */}
-
-        <div className="px-4 pb-6">
-
-          <button className="w-full text-left px-4 py-3 rounded-lg text-gray-300 hover:bg-white/10">
-            Settings
-          </button>
-
-          <button
-            onClick={() =>
-              navigate("/admin/login")
-            }
-            className="w-full text-left px-4 py-3 rounded-lg text-red-400 hover:bg-red-500/10 mt-2"
-          >
-            Logout
-          </button>
-
-        </div>
-
-      </aside>
-
-      {/* =====================================================
-          MAIN CONTENT
-      ===================================================== */}
-
-      <main className="flex-1 min-w-0">
-
-        {/* =================================================
-            TOP BAR
-        ================================================= */}
-
-        <header className="h-16 bg-[#1c2029] border-b border-white/10 flex items-center justify-between px-6">
-
-          <div>
-
-            <p className="text-xs text-gray-500">
-              Dashboard / Customers
-            </p>
-
-          </div>
-
-          <div className="flex items-center gap-4">
-
-            <span className="text-sm text-gray-300">
-              Admin User
+    <div className="min-h-screen bg-[#151923] text-white">
+      {/* TOP BAR */}
+      <header className="h-16 bg-[#151923] border-b border-[#2c3340] px-6 flex items-center justify-between">
+        <div className="w-[55%] max-w-xl">
+          <div className="flex items-center bg-[#202632] border border-[#303847] rounded-lg px-4 py-2.5">
+            <span className="text-gray-500 text-sm mr-2">
+              ⌕
             </span>
 
-            <div className="w-9 h-9 rounded-full bg-[#b91f35] flex items-center justify-center font-bold">
-              A
-            </div>
+            <span className="text-xs text-gray-500">
+              LAPZONE Admin
+            </span>
+          </div>
+        </div>
 
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="text-xs font-medium text-white">
+              Admin User
+            </p>
+
+            <p className="text-[9px] text-gray-500">
+              System Architect
+            </p>
           </div>
 
-        </header>
+          <div className="w-9 h-9 rounded-full bg-[#4a556c] border-2 border-[#69758c] flex items-center justify-center text-xs">
+            A
+          </div>
+        </div>
+      </header>
 
-        {/* =================================================
-            PAGE CONTENT
-        ================================================= */}
-
-        <div className="p-6">
-
-          {/* HEADER */}
-
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 mb-7">
-
-            <div>
-
-              <h2 className="text-3xl font-black">
-                USER MANAGEMENT
-              </h2>
-
-              <p className="text-sm text-gray-400 mt-2">
-                View and manage all registered LAPZONE customers.
-                Monitor status and activity.
-              </p>
-
-            </div>
-
-            <div className="flex gap-3">
-
-              <button
-                onClick={fetchUsers}
-                className="px-5 py-3 rounded-lg bg-[#384358] hover:bg-[#46526b] text-sm font-semibold"
-              >
-                Refresh
-              </button>
-
-            </div>
-
+      {/* PAGE CONTENT */}
+      <div className="p-6">
+        <div>
+          <div className="text-[9px] uppercase tracking-wide text-gray-500 mb-2">
+            Dashboard
+            <span className="mx-2">/</span>
+            <span className="text-[#e33445]">
+              Customers
+            </span>
           </div>
 
-          {/* =================================================
-              STATISTICS
-          ================================================= */}
+          <h1 className="text-xl font-semibold">
+            USER MANAGEMENT
+          </h1>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-7">
+          <p className="text-xs text-gray-500 mt-2 max-w-2xl">
+            Manage LAPZONE customers, monitor account status
+            and control user access.
+          </p>
+        </div>
 
-            {/* TOTAL */}
+        {/* SUCCESS MESSAGE */}
+        {success && (
+          <div className="mt-4 bg-green-500/10 border border-green-500/30 text-green-300 text-xs px-4 py-3 rounded-md">
+            {success}
+          </div>
+        )}
 
-            <div className="bg-[#384358] rounded-lg p-5">
+        {/* ERROR MESSAGE */}
+        {error && (
+          <div className="mt-4 bg-red-500/10 border border-red-500/30 text-red-300 text-xs px-4 py-3 rounded-md">
+            {error}
+          </div>
+        )}
 
-              <p className="text-xs uppercase tracking-wider text-gray-400">
-                Total Users
-              </p>
+        {/* STAT CARDS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+          <div className="bg-[#354158] rounded-lg p-5">
+            <p className="text-[10px] uppercase tracking-wide text-gray-400">
+              Total Customers
+            </p>
 
-              <h3 className="text-3xl font-black mt-3">
-                {pagination.totalUsers}
-              </h3>
+            <p className="text-2xl font-semibold mt-5">
+              {totalUsers}
+            </p>
 
-              <div className="h-1 bg-gray-500/40 mt-4 rounded-full">
-                <div className="h-1 bg-white rounded-full w-full" />
-              </div>
-
-            </div>
-
-            {/* ACTIVE */}
-
-            <div className="bg-[#384358] rounded-lg p-5">
-
-              <p className="text-xs uppercase tracking-wider text-gray-400">
-                Active Users
-              </p>
-
-              <h3 className="text-3xl font-black mt-3 text-green-400">
-                {activeUsers}
-              </h3>
-
-              <div className="h-1 bg-gray-500/40 mt-4 rounded-full">
-                <div className="h-1 bg-green-400 rounded-full w-3/4" />
-              </div>
-
-            </div>
-
-            {/* BLOCKED */}
-
-            <div className="bg-[#384358] rounded-lg p-5">
-
-              <p className="text-xs uppercase tracking-wider text-gray-400">
-                Blocked Users
-              </p>
-
-              <h3 className="text-3xl font-black mt-3 text-red-500">
-                {blockedUsers}
-              </h3>
-
-              <div className="h-1 bg-gray-500/40 mt-4 rounded-full">
-                <div className="h-1 bg-red-500 rounded-full w-1/4" />
-              </div>
-
-            </div>
-
-            {/* NEW USERS */}
-
-            <div className="bg-[#384358] rounded-lg p-5">
-
-              <p className="text-xs uppercase tracking-wider text-gray-400">
-                Current Page
-              </p>
-
-              <h3 className="text-3xl font-black mt-3">
-                {users.length}
-              </h3>
-
-              <p className="text-xs text-gray-400 mt-2">
-                Users displayed on this page
-              </p>
-
-            </div>
-
+            <p className="text-[10px] text-gray-500 mt-1">
+              Matching registered users
+            </p>
           </div>
 
-          {/* =================================================
-              SEARCH BAR
-          ================================================= */}
+          <div className="bg-[#354158] rounded-lg p-5">
+            <p className="text-[10px] uppercase tracking-wide text-gray-400">
+              Active Users
+            </p>
 
-          <div className="bg-[#1c2029] rounded-lg p-4 mb-5 border border-white/5">
+            <p className="text-2xl font-semibold text-green-300 mt-5">
+              {activeUsers}
+            </p>
 
-            <form
-              onSubmit={handleSearch}
-              className="flex flex-col sm:flex-row gap-3"
+            <p className="text-[10px] text-gray-500 mt-1">
+              On this page
+            </p>
+          </div>
+
+          <div className="bg-[#354158] rounded-lg p-5">
+            <p className="text-[10px] uppercase tracking-wide text-gray-400">
+              Blocked Users
+            </p>
+
+            <p className="text-2xl font-semibold text-red-300 mt-5">
+              {blockedUsers}
+            </p>
+
+            <p className="text-[10px] text-gray-500 mt-1">
+              On this page
+            </p>
+          </div>
+        </div>
+
+        {/* USER TABLE */}
+        <div className="mt-6 bg-[#354158] rounded-lg overflow-hidden">
+          {/* SEARCH, FILTER AND SORT */}
+          <div className="p-3 flex flex-col lg:flex-row gap-3">
+            <div className="flex-1 flex items-center bg-[#171d28] border border-[#2c3340] rounded-md px-3">
+              <span className="text-gray-500 mr-2">
+                ⌕
+              </span>
+
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSearch();
+                }}
+                placeholder="Search users by name or email..."
+                className="flex-1 min-w-0 bg-transparent outline-none text-xs text-white placeholder:text-gray-600 py-2.5"
+              />
+
+              {search && (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="text-gray-500 hover:text-white text-xs px-2"
+                  aria-label="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSearch}
+              className="bg-[#b51a2b] hover:bg-[#d92d3d] px-5 py-2 rounded-md text-xs font-medium"
             >
+              SEARCH
+            </button>
 
-              <div className="flex-1 relative">
+            <button
+              type="button"
+              onClick={handleClear}
+              className="bg-[#202938] hover:bg-[#273142] text-gray-300 px-5 py-2 rounded-md text-xs"
+            >
+              CLEAR
+            </button>
 
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
-                  🔍
-                </span>
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+                fetchUsers(search.trim(), 1);
+              }}
+              className="bg-[#202938] border border-[#465168] rounded-md px-3 py-2 text-xs text-white"
+              aria-label="Filter by user status"
+            >
+              <option value="all">All Users</option>
+              <option value="active">Active</option>
+              <option value="blocked">Blocked</option>
+            </select>
 
-                <input
-                  type="text"
-                  placeholder="Search by name or email..."
-                  value={search}
-                  onChange={(e) =>
-                    setSearch(e.target.value)
-                  }
-                  className="w-full h-11 bg-[#252a34] border border-white/10 rounded-lg pl-11 pr-4 text-white placeholder:text-gray-500 outline-none focus:border-[#b91f35]"
-                />
-
-              </div>
-
-              <button
-                type="submit"
-                className="px-6 h-11 rounded-lg bg-[#b91f35] hover:bg-[#a51b30] font-semibold"
-              >
-                Search
-              </button>
-
-              <button
-                type="button"
-                onClick={handleClear}
-                className="px-6 h-11 rounded-lg border border-gray-500 text-gray-300 hover:bg-white/5"
-              >
-                Clear
-              </button>
-
-            </form>
-
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="bg-[#202938] border border-[#465168] rounded-md px-3 py-2 text-xs text-white"
+              aria-label="Sort users"
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="name-asc">Name A–Z</option>
+              <option value="name-desc">Name Z–A</option>
+            </select>
           </div>
 
-          {/* =================================================
-              TABLE
-          ================================================= */}
+          {/* TABLE */}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[850px]">
+              <thead>
+                <tr className="bg-[#3b465d] text-[9px] uppercase tracking-wide text-gray-400">
+                  <th className="text-left px-5 py-4">
+                    User
+                  </th>
+                  <th className="text-left px-5 py-4">
+                    Email
+                  </th>
+                  <th className="text-left px-5 py-4">
+                    Phone
+                  </th>
+                  <th className="text-left px-5 py-4">
+                    Joined
+                  </th>
+                  <th className="text-left px-5 py-4">
+                    Status
+                  </th>
+                  <th className="text-right px-5 py-4">
+                    Action
+                  </th>
+                </tr>
+              </thead>
 
-          <div className="bg-[#384358] rounded-lg overflow-hidden border border-white/5">
-
-            {/* TABLE HEADER */}
-
-            <div className="px-5 py-4 border-b border-white/10 flex justify-between items-center">
-
-              <div>
-
-                <h3 className="font-bold">
-                  Customers
-                </h3>
-
-                <p className="text-xs text-gray-400 mt-1">
-                  Latest registered users appear first
-                </p>
-
-              </div>
-
-              <div className="text-xs text-gray-400">
-                {pagination.totalUsers} users
-              </div>
-
-            </div>
-
-            <div className="overflow-x-auto">
-
-              <table className="w-full min-w-[850px]">
-
-                <thead className="bg-[#30394c]">
-
+              <tbody>
+                {loading ? (
                   <tr>
-
-                    <th className="text-left px-5 py-4 text-xs uppercase tracking-wider text-gray-400">
-                      User
-                    </th>
-
-                    <th className="text-left px-5 py-4 text-xs uppercase tracking-wider text-gray-400">
-                      Contact Info
-                    </th>
-
-                    <th className="text-left px-5 py-4 text-xs uppercase tracking-wider text-gray-400">
-                      Status
-                    </th>
-
-                    <th className="text-left px-5 py-4 text-xs uppercase tracking-wider text-gray-400">
-                      Joined
-                    </th>
-
-                    <th className="text-center px-5 py-4 text-xs uppercase tracking-wider text-gray-400">
-                      Actions
-                    </th>
-
+                    <td
+                      colSpan={6}
+                      className="text-center py-12 text-gray-400 text-xs"
+                    >
+                      Loading users...
+                    </td>
                   </tr>
+                ) : displayedUsers.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="text-center py-12 text-gray-500 text-xs"
+                    >
+                      No users found for this filter
+                    </td>
+                  </tr>
+                ) : (
+                  displayedUsers.map((user) => {
+                    const blocked = user.isBlocked === true;
 
-                </thead>
-
-                <tbody>
-
-                  {loading ? (
-
-                    <tr>
-
-                      <td
-                        colSpan="5"
-                        className="text-center py-16 text-gray-400"
-                      >
-                        Loading users...
-                      </td>
-
-                    </tr>
-
-                  ) : users.length === 0 ? (
-
-                    <tr>
-
-                      <td
-                        colSpan="5"
-                        className="text-center py-16 text-gray-400"
-                      >
-                        No users found
-                      </td>
-
-                    </tr>
-
-                  ) : (
-
-                    users.map((user) => (
-
+                    return (
                       <tr
                         key={user._id}
-                        className="border-t border-white/10 hover:bg-white/5 transition"
+                        className="border-t border-[#465168] hover:bg-[#3d4961] transition"
                       >
-
-                        {/* USER */}
-
-                        <td className="px-5 py-5">
-
+                        <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-
-                            <div className="w-9 h-9 rounded-full bg-[#b91f35] flex items-center justify-center font-bold">
-
-                              {user.name
-                                ?.charAt(0)
-                                ?.toUpperCase() || "U"}
-
+                            <div className="w-9 h-9 rounded-full bg-[#202735] border border-[#556078] flex items-center justify-center text-xs font-semibold">
+                              {user.name?.charAt(0)?.toUpperCase() || "U"}
                             </div>
 
                             <div>
-
-                              <p className="font-semibold text-sm">
+                              <p
+                                className={`text-xs font-medium ${
+                                  blocked ? "text-gray-500" : "text-white"
+                                }`}
+                              >
                                 {user.name}
                               </p>
 
-                              <p className="text-xs text-gray-500">
-                                ID: {user._id.slice(-6)}
+                              <p className="text-[9px] text-gray-500 mt-1">
+                                ID: {user._id?.slice(-6)}
                               </p>
-
                             </div>
-
                           </div>
-
                         </td>
 
-                        {/* EMAIL */}
-
-                        <td className="px-5 py-5">
-
-                          <p className="text-sm">
-                            {user.email}
-                          </p>
-
-                          <p className="text-xs text-gray-500 mt-1">
-                            {user.phone || "No phone number"}
-                          </p>
-
+                        <td className="px-5 py-4">
+                          <span className="text-[10px] text-gray-300">
+                            {user.email || "-"}
+                          </span>
                         </td>
 
-                        {/* STATUS */}
+                        <td className="px-5 py-4">
+                          <span className="text-[10px] text-gray-400">
+                            {user.phone || "-"}
+                          </span>
+                        </td>
 
-                        <td className="px-5 py-5">
+                        <td className="px-5 py-4">
+                          <span className="text-[10px] text-gray-400">
+                            {user.createdAt
+                              ? new Date(user.createdAt).toLocaleDateString("en-IN")
+                              : "-"}
+                          </span>
+                        </td>
 
-                          {user.isBlocked ? (
-
-                            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-bold">
-
-                              <span className="w-2 h-2 rounded-full bg-red-500" />
-
+                        <td className="px-5 py-4">
+                          {blocked ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-400/10 border border-red-300/20 text-[9px] text-red-300">
+                              <span className="w-1.5 h-1.5 bg-red-300 rounded-full" />
                               BLOCKED
-
                             </span>
-
                           ) : (
-
-                            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 text-green-400 text-xs font-bold">
-
-                              <span className="w-2 h-2 rounded-full bg-green-400" />
-
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-400/10 border border-green-300/20 text-[9px] text-green-300">
+                              <span className="w-1.5 h-1.5 bg-green-300 rounded-full" />
                               ACTIVE
-
                             </span>
-
                           )}
-
                         </td>
 
-                        {/* JOINED */}
-
-                        <td className="px-5 py-5 text-sm text-gray-300">
-
-                          {user.createdAt
-                            ? new Date(
-                                user.createdAt
-                              ).toLocaleDateString("en-IN", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              })
-                            : "-"}
-
-                        </td>
-
-                        {/* ACTION */}
-
-                        <td className="px-5 py-5 text-center">
-
-                          {user.isBlocked ? (
-
+                        <td className="px-5 py-4">
+                          <div className="flex justify-end">
                             <button
-                              onClick={() =>
-                                handleUnblock(user._id)
-                              }
-                              className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold"
+                              type="button"
+                              onClick={() => handleToggleBlock(user)}
+                              className={`px-4 py-2 rounded-md text-[9px] font-medium ${
+                                blocked
+                                  ? "bg-green-500/10 text-green-300 border border-green-400/20 hover:bg-green-500/20"
+                                  : "bg-red-500/10 text-red-300 border border-red-400/20 hover:bg-red-500/20"
+                              }`}
                             >
-                              Unblock
+                              {blocked ? "UNBLOCK" : "BLOCK"}
                             </button>
-
-                          ) : (
-
-                            <button
-                              onClick={() =>
-                                handleBlock(user._id)
-                              }
-                              className="px-4 py-2 rounded-lg bg-[#b91f35] hover:bg-[#a51b30] text-white text-xs font-bold"
-                            >
-                              Block
-                            </button>
-
-                          )}
-
+                          </div>
                         </td>
-
                       </tr>
-
-                    ))
-
-                  )}
-
-                </tbody>
-
-              </table>
-
-            </div>
-
-            {/* =================================================
-                TABLE FOOTER / PAGINATION
-            ================================================= */}
-
-            <div className="px-5 py-4 border-t border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
-
-              <p className="text-xs text-gray-400">
-
-                Showing{" "}
-                <span className="text-white font-semibold">
-                  {users.length}
-                </span>{" "}
-                of{" "}
-                <span className="text-white font-semibold">
-                  {pagination.totalUsers}
-                </span>{" "}
-                users
-
-              </p>
-
-              <div className="flex items-center gap-2">
-
-                <button
-                  disabled={page === 1}
-                  onClick={() =>
-                    setPage(page - 1)
-                  }
-                  className="px-4 py-2 rounded-lg bg-[#252a34] text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#30394c]"
-                >
-                  ←
-                </button>
-
-                <span className="px-4 py-2 rounded-lg bg-[#b91f35] text-sm font-bold">
-                  {pagination.currentPage}
-                </span>
-
-                <button
-                  disabled={
-                    page >= pagination.totalPages
-                  }
-                  onClick={() =>
-                    setPage(page + 1)
-                  }
-                  className="px-4 py-2 rounded-lg bg-[#252a34] text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#30394c]"
-                >
-                  →
-                </button>
-
-              </div>
-
-            </div>
-
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
 
+          {/* PAGINATION */}
+          <div className="px-5 py-4 border-t border-[#465168] flex flex-col sm:flex-row gap-3 items-center justify-between">
+            <p className="text-[9px] text-gray-400">
+              Showing {displayedUsers.length} of {users.length} users on this page
+              {" · "}
+              {totalUsers} total matching users
+            </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage <= 1 || loading}
+                className="w-7 h-7 rounded text-gray-400 hover:bg-[#465168] disabled:opacity-30"
+                aria-label="Previous page"
+              >
+                ‹
+              </button>
+
+              {Array.from(
+                { length: totalPages },
+                (_, index) => index + 1
+              )
+                .slice(
+                  Math.max(currentPage - 2, 0),
+                  Math.min(currentPage + 1, totalPages)
+                )
+                .map((pageNumber) => (
+                  <button
+                    key={pageNumber}
+                    type="button"
+                    onClick={() => goToPage(pageNumber)}
+                    disabled={loading}
+                    className={`w-7 h-7 rounded text-[10px] ${
+                      currentPage === pageNumber
+                        ? "bg-[#b51a2b] text-white"
+                        : "text-gray-400 hover:bg-[#465168]"
+                    }`}
+                  >
+                    {pageNumber}
+                  </button>
+                ))}
+
+              <button
+                type="button"
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage >= totalPages || loading}
+                className="w-7 h-7 rounded text-gray-400 hover:bg-[#465168] disabled:opacity-30"
+                aria-label="Next page"
+              >
+                ›
+              </button>
+            </div>
+          </div>
         </div>
-
-      </main>
-
+      </div>
     </div>
   );
 }

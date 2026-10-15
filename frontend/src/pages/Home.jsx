@@ -1,698 +1,499 @@
-import { useNavigate } from "react-router-dom";
 
-function Home() {
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../api/axios";
+
+const Home = () => {
   const navigate = useNavigate();
 
-  const products = [
-    {
-      name: "ASUS ROG Strix G16",
-      category: "Gaming",
-      price: "₹1,24,990",
-      oldPrice: "₹1,49,990",
-      image:
-        "https://images.unsplash.com/photo-1593642702749-b7d2a804fbcf?w=800",
-    },
-    {
-      name: "Lenovo Legion 5",
-      category: "Gaming",
-      price: "₹1,09,990",
-      oldPrice: "₹1,29,990",
-      image:
-        "https://images.unsplash.com/photo-1603302576837-37561b2e2302?w=800",
-    },
-    {
-      name: "MacBook Air M3",
-      category: "Business",
-      price: "₹1,14,990",
-      oldPrice: "₹1,24,990",
-      image:
-        "https://images.unsplash.com/photo-1517336714739-489689fd1ca8?w=800",
-    },
-    {
-      name: "ASUS TUF Gaming A15",
-      category: "Gaming",
-      price: "₹89,990",
-      oldPrice: "₹1,09,990",
-      image:
-        "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?w=800",
-    },
-    {
-      name: "Lenovo ThinkPad E14",
-      category: "Business",
-      price: "₹54,990",
-      oldPrice: "₹69,990",
-      image:
-        "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800",
-    },
+  const [products, setProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [productError, setProductError] = useState("");
+
+  // FETCH PRODUCTS
+  const fetchProducts = useCallback(async () => {
+    try {
+      setLoadingProducts(true);
+      setProductError("");
+
+      const response = await api.get("/products");
+      const data = response.data;
+
+      const productList = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.products)
+          ? data.products
+          : Array.isArray(data?.data?.products)
+            ? data.data.products
+            : [];
+
+      setProducts(productList);
+    } catch (error) {
+      console.error(
+        "Home products error:",
+        error.response?.data || error.message
+      );
+
+      setProductError(
+        error.response?.data?.message ||
+          "Unable to load products. Please try again."
+      );
+    } finally {
+      setLoadingProducts(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  // NAVIGATION
+  const openProducts = (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    navigate(query ? `/products?${query}` : "/products");
+  };
+
+  const openProduct = (product) => {
+    if (!product?._id) return;
+    navigate(`/products/${product._id}`);
+  };
+
+  // IMAGE URL
+  const getImageUrl = (image) => {
+    if (!image || typeof image !== "string") return null;
+
+    if (/^https?:\/\//i.test(image)) return image;
+
+    const baseURL = (
+      api.defaults?.baseURL || "http://localhost:5000/api"
+    ).replace(/\/+$/, "");
+
+    const serverURL = baseURL.replace(/\/api$/i, "");
+    const imagePath = image.startsWith("/") ? image : `/${image}`;
+
+    return `${serverURL}${imagePath}`;
+  };
+
+  const handleImageError = (event) => {
+    event.currentTarget.onerror = null;
+    event.currentTarget.src =
+      "https://placehold.co/600x400/202936/ffffff?text=LAPZONE";
+  };
+
+  // CATEGORIES
+ const categories = [
+  {
+    title: "Gaming",
+    subtitle: "High performance",
+    value: "Gaming",
+    image:
+      "https://images.unsplash.com/photo-1593640495253-23196b27a87f?w=800",
+  },
+  {
+    title: "Business",
+    subtitle: "Work smarter",
+    value: "Business",
+    image:
+      "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800",
+  },
+  {
+    title: "Student",
+    subtitle: "Powerful, simple, reliable",
+    value: "Student",
+    image:
+      "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=800",
+  },
+  {
+    title: "Premium",
+    subtitle: "Premium performance",
+    value: "Premium",
+    image:
+      "https://images.unsplash.com/photo-1541807084-5c52b6b3adef?w=800",
+  },
+];
+
+  const brands = [
+    "ASUS",
+    "Dell",
+    "HP",
+    "Lenovo",
+    "Acer",
+    "MSI",
+    "Apple",
+    "Samsung",
+    "Microsoft",
+    "LG",
+    "Gigabyte",
+    "Razer",
   ];
 
-  const categories = [
-    {
-      title: "Gaming",
-      subtitle: "High Performance",
-      image:
-        "https://images.unsplash.com/photo-1593640495253-23196b27a87f?w=800",
-    },
-    {
-      title: "Business",
-      subtitle: "Work Smart",
-      image:
-        "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800",
-    },
-    {
-      title: "Students",
-      subtitle: "Powerful. Simple. Clean.",
-      image:
-        "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=800",
-    },
-    {
-      title: "Everyday Use",
-      subtitle: "For Work & Home",
-      image:
-        "https://images.unsplash.com/photo-1541807084-5c52b6b3adef?w=800",
-    },
-  ];
+  const featuredProducts = products.slice(0, 5);
+
+  // REUSABLE SECTION LABEL
+  const SectionLabel = ({ children }) => (
+    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-[#c51f35]">
+      {children}
+    </p>
+  );
 
   return (
-    <div className="min-h-screen bg-[#151820] text-gray-200">
+    <div className="min-h-screen overflow-x-clip bg-[#151820] text-gray-200">
+      {/* HERO */}
+      <section className="relative isolate overflow-hidden">
+        <div className="pointer-events-none absolute -right-24 top-10 h-80 w-80 rounded-full bg-[#c51f35]/10 blur-3xl" />
 
-      {/* ================= NAVBAR ================= */}
+        <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+          <div className="grid min-h-[520px] items-center gap-10 py-12 sm:py-16 lg:grid-cols-2 lg:gap-8 lg:py-14">
+            <div className="relative z-10">
+              <SectionLabel>Welcome to LAPZONE</SectionLabel>
 
-      <header className="sticky top-0 z-50 bg-[#151820]/95 backdrop-blur border-b border-[#384358]/30">
-
-        <div className="max-w-7xl mx-auto px-5 lg:px-8 h-16 flex items-center justify-between">
-
-          {/* LOGO */}
-
-          <div
-            className="flex items-center gap-3 cursor-pointer"
-            onClick={() => navigate("/")}
-          >
-            <div className="w-8 h-8 rounded-md bg-[#c51f35] flex items-center justify-center">
-              <span className="text-white font-bold text-sm">
-                LZ
-              </span>
-            </div>
-
-            <span className="font-semibold tracking-wide text-white">
-              LAPZONE
-            </span>
-          </div>
-
-          {/* NAVIGATION */}
-
-          <nav className="hidden md:flex items-center gap-7 text-xs">
-
-            <button className="text-[#c51f35] font-medium">
-              Home
-            </button>
-
-            <button className="text-gray-400 hover:text-white transition">
-              Products
-            </button>
-
-            <button className="text-gray-400 hover:text-white transition">
-              Categories
-            </button>
-
-            <button className="text-gray-400 hover:text-white transition">
-              Wishlist
-            </button>
-
-            <button className="text-gray-400 hover:text-white transition">
-              Cart
-            </button>
-
-          </nav>
-
-          {/* SEARCH + ICONS */}
-
-          <div className="flex items-center gap-3">
-
-            <div className="hidden sm:flex items-center bg-[#222731] border border-[#384358]/40 rounded-full px-4 h-9 w-48">
-
-              <input
-                type="text"
-                placeholder="Search laptops..."
-                className="bg-transparent outline-none text-xs text-gray-300 placeholder:text-gray-600 w-full"
-              />
-
-              <span className="text-gray-500">
-                ⌕
-              </span>
-
-            </div>
-
-            <button
-             onClick={() => navigate("/profile")}
-               className="w-10 h-10 rounded-full bg-[#384358] hover:bg-[#c51f35] transition flex items-center justify-center text-gray-400 hover:text-white"
-                 >
-                  ♙
-                 </button>
-
-            <button className="text-gray-400 hover:text-white">
-              ♡
-            </button>
-
-            <button className="text-gray-400 hover:text-white relative">
-              🛒
-
-              <span className="absolute -top-2 -right-2 bg-[#c51f35] text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">
-                0
-              </span>
-
-            </button>
-
-          </div>
-
-        </div>
-
-      </header>
-
-
-      {/* ================= HERO ================= */}
-
-      <section className="relative overflow-hidden">
-
-        <div className="max-w-7xl mx-auto px-5 lg:px-8">
-
-          <div className="min-h-[500px] grid lg:grid-cols-2 items-center">
-
-            {/* HERO CONTENT */}
-
-            <div className="py-16 lg:py-20">
-
-              <p className="text-[#c51f35] text-[10px] font-bold tracking-[0.25em] mb-4">
-                WELCOME TO LAPZONE
-              </p>
-
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-[0.95]">
-
+              <h1 className="text-4xl font-extrabold leading-[1.08] tracking-tight text-white sm:text-5xl md:text-6xl xl:text-7xl">
                 POWER YOUR
-
-                <br />
-
-                <span className="text-[#c51f35]">
+                <span className="mt-2 block text-[#c51f35]">
                   PERFORMANCE
                 </span>
-
               </h1>
 
-              <p className="text-gray-400 text-sm leading-6 max-w-md mt-6">
+              <p className="mt-6 max-w-lg text-sm leading-7 text-gray-400 sm:text-base">
                 Discover powerful laptops built for gaming,
-                business, creativity and everyday performance.
+                business, creativity, and everyday performance.
+                Find the right laptop for your needs at LAPZONE.
               </p>
 
-              <div className="flex flex-wrap gap-3 mt-7">
-
-                <button
-                  onClick={() => navigate("/products")}
-                  className="bg-[#c51f35] hover:bg-[#b51b30] text-white text-xs font-medium px-6 py-3 rounded-md transition"
-                >
-                  SHOP LAPTOPS →
-                </button>
-
-                <button
-                  onClick={() => navigate("/products")}
-                  className="border border-[#384358] hover:border-[#c51f35] text-gray-300 text-xs px-6 py-3 rounded-md transition"
-                >
-                  EXPLORE LAPTOPS
-                </button>
-
-              </div>
-
-              {/* FEATURES */}
-
-              <div className="flex flex-wrap gap-7 mt-10">
-
-                <div className="flex items-center gap-2">
-                  <span className="text-[#c51f35]">
-                    ♢
-                  </span>
-
-                  <div>
-                    <p className="text-[10px] text-gray-300">
-                      Free Shipping
-                    </p>
-
-                    <p className="text-[8px] text-gray-600">
-                      On orders above ₹500
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-[#c51f35]">
+              {/* STORE BENEFITS */}
+              <div className="mt-10 grid grid-cols-1 gap-5 border-t border-[#384358]/60 pt-6 sm:grid-cols-3 sm:gap-4">
+                <div className="flex items-start gap-3">
+                  <span className="text-lg text-[#c51f35]" aria-hidden="true">
                     ◈
                   </span>
-
                   <div>
-                    <p className="text-[10px] text-gray-300">
-                      Secure Payment
+                    <p className="text-xs font-semibold text-gray-200">
+                      Secure Payments
                     </p>
-
-                    <p className="text-[8px] text-gray-600">
-                      100% secure checkout
+                    <p className="mt-1 text-[10px] leading-4 text-gray-500">
+                      Secure checkout
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-[#c51f35]">
-                    ♧
+                <div className="flex items-start gap-3">
+                  <span className="text-lg text-[#c51f35]" aria-hidden="true">
+                    ↗
                   </span>
-
                   <div>
-                    <p className="text-[10px] text-gray-300">
-                      24/7 Support
+                    <p className="text-xs font-semibold text-gray-200">
+                      Delivery Across India
                     </p>
-
-                    <p className="text-[8px] text-gray-600">
-                      We're here to help
+                    <p className="mt-1 text-[10px] leading-4 text-gray-500">
+                      India-only shipping
                     </p>
                   </div>
                 </div>
 
+                <div className="flex items-start gap-3">
+                  <span className="text-lg text-[#c51f35]" aria-hidden="true">
+                    ✓
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-200">
+                      Customer Support
+                    </p>
+                    <p className="mt-1 text-[10px] leading-4 text-gray-500">
+                      Help when you need it
+                    </p>
+                  </div>
+                </div>
               </div>
-
             </div>
 
-
             {/* HERO IMAGE */}
-
-            <div className="relative h-full min-h-[420px] flex items-center justify-center">
-
-              <div className="absolute w-[450px] h-[450px] bg-[#c51f35]/10 rounded-full blur-3xl"></div>
+            <div className="relative flex min-h-[280px] items-center justify-center sm:min-h-[380px] lg:min-h-[440px]">
+              <div className="pointer-events-none absolute h-64 w-64 rounded-full bg-[#c51f35]/15 blur-3xl sm:h-96 sm:w-96" />
 
               <img
                 src="https://images.unsplash.com/photo-1603302576837-37561b2e2302?w=1200"
-                alt="Gaming Laptop"
-                className="relative z-10 w-full max-w-xl object-cover rounded-xl shadow-2xl border border-[#384358]/40"
+                alt="Laptop for work, gaming, and performance"
+                onError={handleImageError}
+                className="relative z-10 max-h-[440px] w-full max-w-xl rounded-xl border border-[#384358]/60 object-cover shadow-2xl"
               />
 
+              <div className="absolute bottom-3 left-2 z-20 rounded-lg border border-[#384358] bg-[#202936]/95 px-4 py-3 shadow-lg sm:bottom-6 sm:left-0">
+                <p className="text-[9px] uppercase tracking-widest text-gray-400">
+                  Discover your next
+                </p>
+                <p className="mt-1 text-sm font-bold text-white">
+                  Performance Laptop
+                </p>
+              </div>
             </div>
-
           </div>
-
         </div>
-
       </section>
 
+      {/* TRUSTED BRANDS */}
+      <section className="border-y border-[#384358]/50 bg-[#20242d]">
+        <div className="mx-auto max-w-7xl px-5 py-8 sm:px-6 lg:px-8">
+          <SectionLabel>Trusted Brands</SectionLabel>
 
-      {/* ================= TRUSTED BRANDS ================= */}
-
-      <section className="border-y border-[#384358]/30 bg-[#222731]/40">
-
-        <div className="max-w-7xl mx-auto px-5 lg:px-8 py-7">
-
-          <p className="text-[9px] text-[#c51f35] font-semibold tracking-widest mb-5">
-            TRUSTED BRANDS
+          <p className="mb-5 text-xs text-gray-500">
+            Explore laptops from popular technology brands.
           </p>
 
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-6 items-center text-center">
-
-            {[
-              "ASUS",
-              "DELL",
-              "HP",
-              "Lenovo",
-              "acer",
-              "MSI",
-            ].map((brand) => (
-              <span
+          <div className="grid grid-cols-3 items-center gap-2 sm:grid-cols-4 sm:gap-3 md:grid-cols-6">
+            {brands.map((brand) => (
+              <button
                 key={brand}
-                className="text-gray-500 font-bold text-sm hover:text-gray-200 transition"
+                type="button"
+                onClick={() => openProducts({ brand })}
+                aria-label={`View ${brand} laptops`}
+                className="rounded-md border border-transparent px-2 py-3 text-sm font-bold text-gray-400 transition hover:border-[#384358] hover:bg-[#29313d] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#c51f35]"
               >
                 {brand}
-              </span>
+              </button>
             ))}
-
           </div>
-
         </div>
-
       </section>
 
-
-      {/* ================= FEATURED PRODUCTS ================= */}
-
-      <section className="max-w-7xl mx-auto px-5 lg:px-8 py-14">
-
-        <div className="flex justify-between items-end mb-7">
-
+      {/* FEATURED PRODUCTS */}
+      <section className="mx-auto max-w-7xl px-5 py-14 sm:px-6 lg:px-8 lg:py-16">
+        <div className="mb-8 flex items-end justify-between gap-4">
           <div>
-            <p className="text-[9px] text-[#c51f35] font-semibold tracking-widest mb-2">
-              FEATURED PRODUCTS
-            </p>
-
-            <h2 className="text-xl font-bold text-white">
-              Handpicked laptops for every need.
+            <SectionLabel>Featured Products</SectionLabel>
+            <h2 className="text-xl font-bold text-white sm:text-2xl">
+              Handpicked laptops for every need
             </h2>
+            <p className="mt-2 text-xs text-gray-500 sm:text-sm">
+              Explore laptops selected for performance and value.
+            </p>
           </div>
 
-          <button className="text-[#c51f35] text-[10px] hover:underline">
-            View All →
+          <button
+            type="button"
+            onClick={() => openProducts()}
+            className="shrink-0 text-xs font-semibold text-[#e04a5e] transition hover:text-white"
+          >
+            View All <span aria-hidden="true">→</span>
           </button>
-
         </div>
 
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-
-          {products.map((product) => (
-
-            <div
-              key={product.name}
-              className="bg-[#222731] border border-[#384358]/40 rounded-md overflow-hidden hover:border-[#c51f35]/60 transition group"
-            >
-
-              {/* IMAGE */}
-
-              <div className="relative h-40 bg-[#151820] p-3">
-
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  className="w-full h-full object-cover rounded-sm group-hover:scale-105 transition duration-300"
-                />
-
-                <button className="absolute top-3 right-3 w-6 h-6 rounded-full bg-[#151820]/80 text-gray-400 hover:text-[#c51f35]">
-                  ♡
-                </button>
-
-              </div>
-
-
-              {/* DETAILS */}
-
-              <div className="p-3">
-
-                <p className="text-[8px] text-gray-500 mb-1">
-                  {product.category}
-                </p>
-
-                <h3 className="text-xs font-semibold text-gray-200 truncate">
-                  {product.name}
-                </h3>
-
-                <div className="mt-3">
-
-                  <span className="text-sm font-bold text-white">
-                    {product.price}
-                  </span>
-
-                  <span className="text-[9px] text-gray-600 line-through ml-2">
-                    {product.oldPrice}
-                  </span>
-
+        {/* LOADING */}
+        {loadingProducts && (
+          <div
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5"
+            aria-label="Loading products"
+          >
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div
+                key={index}
+                className="animate-pulse overflow-hidden rounded-lg border border-[#384358]/50 bg-[#20242d]"
+              >
+                <div className="h-44 bg-[#29313d]" />
+                <div className="space-y-3 p-4">
+                  <div className="h-3 w-1/3 rounded bg-[#384358]" />
+                  <div className="h-4 w-4/5 rounded bg-[#384358]" />
+                  <div className="h-5 w-1/2 rounded bg-[#384358]" />
+                  <div className="h-9 rounded bg-[#384358]" />
                 </div>
-
-                <button className="w-full mt-3 bg-[#c51f35] hover:bg-[#b51b30] text-white text-[9px] py-2 rounded transition">
-                  ADD TO CART
-                </button>
-
               </div>
+            ))}
+          </div>
+        )}
 
+        {/* ERROR */}
+        {!loadingProducts && productError && (
+          <div className="rounded-lg border border-red-900/70 bg-red-950/20 px-5 py-12 text-center">
+            <p className="font-semibold text-red-300">
+              Could not load products
+            </p>
+            <p className="mx-auto mt-2 max-w-lg text-sm text-gray-400">
+              {productError}
+            </p>
+            <button
+              type="button"
+              onClick={fetchProducts}
+              className="mt-5 rounded-md bg-[#c51f35] px-5 py-2.5 text-xs font-bold text-white transition hover:bg-[#a9182b]"
+            >
+              TRY AGAIN
+            </button>
+          </div>
+        )}
+
+        {/* EMPTY */}
+        {!loadingProducts &&
+          !productError &&
+          featuredProducts.length === 0 && (
+            <div className="rounded-lg border border-[#384358]/50 bg-[#20242d] px-5 py-12 text-center">
+              <p className="font-semibold text-white">
+                No products available yet
+              </p>
+              <p className="mt-2 text-sm text-gray-500">
+                Please check back later.
+              </p>
+              <button
+                type="button"
+                onClick={() => openProducts()}
+                className="mt-5 rounded-md border border-[#384358] px-5 py-2.5 text-xs text-white transition hover:border-[#c51f35]"
+              >
+                Browse All Laptops
+              </button>
             </div>
+          )}
 
-          ))}
+        {/* PRODUCT GRID */}
+        {!loadingProducts &&
+          !productError &&
+          featuredProducts.length > 0 && (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+              {featuredProducts.map((product) => {
+                const image = getImageUrl(product.images?.[0]);
+                const price = Number(
+                  product.offer?.finalPrice ?? product.price
+                );
+                const originalPrice = Number(product.price);
+                const hasOffer = Boolean(product.offer?.hasOffer);
 
-        </div>
+                return (
+                  <article
+                    key={product._id}
+                    className="group flex min-w-0 flex-col overflow-hidden rounded-lg border border-[#384358]/50 bg-[#20242d] transition duration-300 hover:-translate-y-1 hover:border-[#c51f35]/70 hover:shadow-xl hover:shadow-black/20"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => openProduct(product)}
+                      className="relative block h-48 overflow-hidden bg-[#191e27] p-3 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#c51f35]"
+                      aria-label={`View ${product.name}`}
+                    >
+                      {image ? (
+                        <img
+                          src={image}
+                          alt={product.name || "Laptop"}
+                          onError={handleImageError}
+                          loading="lazy"
+                          className="h-full w-full rounded-md object-contain transition duration-300 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                          LAPZONE
+                        </div>
+                      )}
 
+                      {hasOffer && (
+                        <span className="absolute left-3 top-3 rounded bg-[#c51f35] px-2 py-1 text-[9px] font-bold text-white">
+                          SPECIAL OFFER
+                        </span>
+                      )}
+                    </button>
+
+                    <div className="flex flex-1 flex-col p-4">
+                      <p className="mb-2 text-[10px] capitalize text-gray-500">
+                        {product.category || "Laptop"}
+                      </p>
+
+                      <h3 className="min-h-10 text-sm font-semibold leading-5 text-gray-100">
+                        {product.name || "Laptop"}
+                      </h3>
+
+                      <div className="mt-3 flex flex-wrap items-baseline gap-2">
+                        <span className="text-base font-bold text-white">
+                          {Number.isFinite(price)
+                            ? `₹${price.toLocaleString("en-IN")}`
+                            : "Price unavailable"}
+                        </span>
+
+                        {hasOffer &&
+                          Number.isFinite(originalPrice) &&
+                          originalPrice > price && (
+                            <span className="text-xs text-gray-500 line-through">
+                              ₹{originalPrice.toLocaleString("en-IN")}
+                            </span>
+                          )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => openProduct(product)}
+                        className="mt-4 w-full rounded-md bg-[#c51f35] py-2.5 text-xs font-bold text-white transition hover:bg-[#a9182b] focus:outline-none focus:ring-2 focus:ring-[#c51f35] focus:ring-offset-2 focus:ring-offset-[#20242d]"
+                      >
+                        VIEW PRODUCT
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
       </section>
 
-
-      {/* ================= SHOP BY CATEGORY ================= */}
-
-      <section className="bg-[#384358]">
-
-        <div className="max-w-7xl mx-auto px-5 lg:px-8 py-14">
-
-          <div className="flex justify-between items-end mb-7">
-
+      {/* SHOP BY CATEGORY */}
+      <section id="categories" className="scroll-mt-24 bg-[#202936]">
+        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 lg:px-8 lg:py-16">
+          <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-
-              <p className="text-[9px] text-[#c51f35] font-semibold tracking-widest mb-2">
-                SHOP BY CATEGORY
-              </p>
-
-              <h2 className="text-xl font-bold text-white">
-                Find the perfect laptop for your needs
+              <SectionLabel>Shop by Category</SectionLabel>
+              <h2 className="text-xl font-bold text-white sm:text-2xl">
+                Find the right laptop for you
               </h2>
-
+              <p className="mt-2 text-xs text-gray-400 sm:text-sm">
+                Choose a category to explore matching laptops.
+              </p>
             </div>
 
-            <button className="text-[#c51f35] text-[10px] hover:underline">
-              View All →
+            <button
+              type="button"
+              onClick={() => openProducts()}
+              className="self-start text-xs font-semibold text-[#e04a5e] transition hover:text-white sm:self-auto"
+            >
+              View All <span aria-hidden="true">→</span>
             </button>
-
           </div>
 
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {categories.map((category) => (
-
-              <div
+              <button
                 key={category.title}
-                className="relative h-48 rounded-md overflow-hidden group cursor-pointer border border-[#222731]/50"
+                type="button"
+                onClick={() => openProducts({ category: category.value })}
+                className="group relative h-56 overflow-hidden rounded-lg border border-[#384358] text-left focus:outline-none focus:ring-2 focus:ring-[#c51f35]"
               >
-
                 <img
                   src={category.image}
-                  alt={category.title}
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                  alt=""
+                  loading="lazy"
+                  onError={handleImageError}
+                  className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-110"
                 />
 
-                <div className="absolute inset-0 bg-gradient-to-t from-[#151820] via-[#151820]/50 to-transparent"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-[#10131a] via-[#151820]/50 to-transparent" />
 
-                <div className="absolute bottom-4 left-4">
-
-                  <p className="text-[#c51f35] text-[9px] font-semibold">
-                    LAPTOPS
+                <div className="absolute inset-x-0 bottom-0 p-5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#ed6172]">
+                    Explore laptops
                   </p>
-
-                  <h3 className="text-white font-bold text-base">
+                  <h3 className="mt-1 text-lg font-bold text-white">
                     {category.title}
                   </h3>
-
-                  <p className="text-gray-400 text-[9px] mt-1">
+                  <p className="mt-1 text-xs text-gray-300">
                     {category.subtitle}
                   </p>
-
                 </div>
 
-                <span className="absolute bottom-4 right-4 text-[#c51f35]">
+                <span
+                  className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white transition group-hover:bg-[#c51f35]"
+                  aria-hidden="true"
+                >
                   →
                 </span>
-
-              </div>
-
+              </button>
             ))}
-
           </div>
-
         </div>
-
       </section>
 
-
-      {/* ================= DEALS ================= */}
-
-      <section className="max-w-7xl mx-auto px-5 lg:px-8 py-10">
-
-        <div className="border-l-2 border-[#c51f35] bg-[#222731] rounded-r-md p-6 flex flex-col md:flex-row items-center justify-between gap-5">
-
-          <div>
-
-            <p className="text-[9px] text-[#c51f35] font-semibold tracking-widest">
-              SPECIAL OFFER
-            </p>
-
-            <h2 className="text-lg font-bold text-white mt-1">
-              Get the Latest Deals & Offers
-            </h2>
-
-            <p className="text-[10px] text-gray-500 mt-2">
-              Subscribe to receive exclusive deals and the latest
-              laptop offers.
-            </p>
-
-          </div>
-
-          <div className="flex w-full md:w-auto">
-
-            <input
-              type="email"
-              placeholder="Enter your email address"
-              className="bg-[#151820] border border-[#384358] text-xs text-gray-300 px-4 h-9 outline-none rounded-l-md w-full md:w-64"
-            />
-
-            <button className="bg-[#c51f35] hover:bg-[#b51b30] text-white text-[9px] font-semibold px-5 rounded-r-md">
-              SUBSCRIBE
-            </button>
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      {/* ================= FOOTER ================= */}
-
-      <footer className="border-t border-[#384358]/40 bg-[#151820]">
-
-        <div className="max-w-7xl mx-auto px-5 lg:px-8 py-12">
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
-
-            {/* ABOUT */}
-
-            <div>
-
-              <div className="flex items-center gap-3 mb-4">
-
-                <div className="w-7 h-7 bg-[#c51f35] rounded-md flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">
-                    LZ
-                  </span>
-                </div>
-
-                <span className="font-semibold text-white">
-                  LAPZONE
-                </span>
-
-              </div>
-
-              <p className="text-[10px] text-gray-500 leading-5 max-w-xs">
-                Your trusted destination for premium laptops,
-                high-performance hardware and exceptional
-                technology.
-              </p>
-
-              <div className="flex gap-3 mt-5">
-
-                <span className="w-7 h-7 rounded-full bg-[#222731] flex items-center justify-center text-gray-500">
-                  f
-                </span>
-
-                <span className="w-7 h-7 rounded-full bg-[#222731] flex items-center justify-center text-gray-500">
-                  ◎
-                </span>
-
-                <span className="w-7 h-7 rounded-full bg-[#222731] flex items-center justify-center text-gray-500">
-                  X
-                </span>
-
-              </div>
-
-            </div>
-
-
-            {/* QUICK LINKS */}
-
-            <div>
-
-              <h3 className="text-[10px] font-semibold text-white tracking-widest mb-5">
-                QUICK LINKS
-              </h3>
-
-              <div className="space-y-3 text-[10px] text-gray-500">
-
-                <p className="hover:text-[#c51f35] cursor-pointer">
-                  Products
-                </p>
-
-                <p className="hover:text-[#c51f35] cursor-pointer">
-                  Categories
-                </p>
-
-                <p className="hover:text-[#c51f35] cursor-pointer">
-                  Wishlist
-                </p>
-
-                <p className="hover:text-[#c51f35] cursor-pointer">
-                  Cart
-                </p>
-
-                <p className="hover:text-[#c51f35] cursor-pointer">
-                  Contact
-                </p>
-
-              </div>
-
-            </div>
-
-
-            {/* SUPPORT */}
-
-            <div>
-
-              <h3 className="text-[10px] font-semibold text-white tracking-widest mb-5">
-                SUPPORT
-              </h3>
-
-              <div className="space-y-3 text-[10px] text-gray-500">
-
-                <p>Help Center</p>
-                <p>Shipping Info</p>
-                <p>Returns & Refunds</p>
-                <p>Terms & Conditions</p>
-                <p>Privacy Policy</p>
-
-              </div>
-
-            </div>
-
-
-            {/* CONTACT */}
-
-            <div>
-
-              <h3 className="text-[10px] font-semibold text-white tracking-widest mb-5">
-                CONTACT US
-              </h3>
-
-              <div className="space-y-3 text-[10px] text-gray-500">
-
-                <p>
-                  ☎ +91 98765 43210
-                </p>
-
-                <p>
-                  ✉ support@lapzone.com
-                </p>
-
-                <p>
-                  ◉ Bangalore, India
-                </p>
-
-              </div>
-
-            </div>
-
-          </div>
-
-
-          <div className="border-t border-[#384358]/30 mt-10 pt-5 flex flex-col sm:flex-row justify-between gap-3">
-
-            <p className="text-[8px] text-gray-600">
-              © 2026 LAPZONE. All rights reserved.
-            </p>
-
-            <p className="text-[8px] text-gray-600">
-              Power • Performance • LAPZONE
-            </p>
-
-          </div>
-
-        </div>
-
-      </footer>
-
+      {/* SPECIAL OFFERS SECTION REMOVED */}
+      {/* FOOTER */}
     </div>
   );
-}
+};
 
 export default Home;

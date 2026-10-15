@@ -1,11 +1,21 @@
 const adminMiddleware = (req, res, next) => {
-  if (!req.session.adminId) {
+  try {
+    if (!req.session?.adminId) {
+      return res.status(401).json({
+        message: "Admin session is required",
+      });
+    }
+
+    req.adminId = req.session.adminId;
+
+    next();
+  } catch (error) {
+    console.error("Admin middleware error:", error.message);
+
     return res.status(401).json({
-      message: "Admin authentication required",
+      message: "Invalid admin session",
     });
   }
-
-  next();
 };
 
 export default adminMiddleware;

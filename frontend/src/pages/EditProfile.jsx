@@ -199,57 +199,7 @@ setShowErrorModal(true);
   return (
     <div className="min-h-screen bg-[#151820] text-gray-200">
 
-      {/* NAVBAR */}
-
-      <nav className="h-16 bg-[#11151d] border-b border-[#252a33] flex items-center justify-between px-8">
-
-        <div
-          className="flex items-center gap-3 cursor-pointer"
-          onClick={() => navigate("/")}
-        >
-          <div className="w-8 h-8 bg-[#c51f35] rounded-md flex items-center justify-center">
-            <span className="text-white text-xs font-bold">
-              LZ
-            </span>
-          </div>
-
-          <span className="text-white font-semibold">
-            LAPZONE
-          </span>
-        </div>
-
-        <div className="hidden md:flex items-center gap-10">
-
-          <button
-            onClick={() => navigate("/")}
-            className="text-gray-400 hover:text-[#c51f35]"
-          >
-            Home
-          </button>
-
-          <button className="text-gray-400 hover:text-[#c51f35]">
-            Laptops
-          </button>
-
-        </div>
-
-        <div className="flex items-center gap-5 text-gray-400">
-
-          <span>⌕</span>
-          <span>♡</span>
-          <span>🛒</span>
-
-          <button
-            onClick={() => navigate("/profile")}
-            className="w-9 h-9 rounded-full bg-[#c51f35] text-white flex items-center justify-center"
-          >
-            👤
-          </button>
-
-        </div>
-
-      </nav>
-
+      
 
       {/* CONTENT */}
 
@@ -257,19 +207,7 @@ setShowErrorModal(true);
 
         <div className="bg-[#384358] rounded-2xl p-8">
 
-          {/* HEADER */}
 
-          <div className="mb-8">
-
-            <h1 className="text-3xl font-semibold text-white">
-              Edit Profile
-            </h1>
-
-            <p className="text-gray-400 mt-2 text-sm">
-              Update your personal information.
-            </p>
-
-          </div>
 
 
           {/* PROFILE PHOTO */}

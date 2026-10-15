@@ -40,7 +40,7 @@ const handleLogin = async (e) => {
 
     alert("Admin login successful!");
 
-    navigate("/admin/dashboard");
+    navigate("/admin/dashboard", { replace: true });
 
   } catch (error) {
     console.error(

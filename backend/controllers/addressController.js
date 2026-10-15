@@ -1,5 +1,49 @@
 import Address from "../models/Address.js";
+import { z } from "zod";
 
+
+// ===============================
+// ADDRESS VALIDATION
+// ===============================
+
+const addressSchema = z.object({
+  fullName: z
+    .string()
+    .trim()
+    .min(3, "Full name must be at least 3 characters"),
+
+  phone: z
+    .string()
+    .trim()
+    .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit phone number"),
+
+  addressLine: z
+    .string()
+    .trim()
+    .min(5, "Address must be at least 5 characters"),
+
+  city: z
+    .string()
+    .trim()
+    .min(2, "City must be at least 2 characters"),
+
+  state: z
+    .string()
+    .trim()
+    .min(2, "State must be at least 2 characters"),
+
+  pincode: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, "Enter a valid 6-digit pincode"),
+
+  isDefault: z.boolean().optional().default(false),
+});
+
+
+// ===============================
+// GET ADDRESSES
+// ===============================
 
 const getAddresses = async (req, res) => {
   try {
@@ -22,9 +66,21 @@ const getAddresses = async (req, res) => {
 };
 
 
+// ===============================
+// ADD ADDRESS
+// ===============================
 
 const addAddress = async (req, res) => {
   try {
+    const validationResult = addressSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      return res.status(400).json({
+        message: "Invalid address details",
+        errors: validationResult.error.flatten().fieldErrors,
+      });
+    }
+
     const {
       fullName,
       phone,
@@ -33,21 +89,8 @@ const addAddress = async (req, res) => {
       state,
       pincode,
       isDefault,
-    } = req.body;
+    } = validationResult.data;
 
-    // Basic validation
-    if (
-      !fullName ||
-      !phone ||
-      !addressLine ||
-      !city ||
-      !state ||
-      !pincode
-    ) {
-      return res.status(400).json({
-        message: "All address fields are required",
-      });
-    }
 
     // If this address is default,
     // remove default from existing addresses
@@ -58,6 +101,7 @@ const addAddress = async (req, res) => {
       );
     }
 
+
     const address = await Address.create({
       userId: req.userId,
       fullName,
@@ -66,8 +110,9 @@ const addAddress = async (req, res) => {
       city,
       state,
       pincode,
-      isDefault: isDefault || false,
+      isDefault,
     });
+
 
     return res.status(201).json({
       message: "Address added successfully",
@@ -84,9 +129,24 @@ const addAddress = async (req, res) => {
 };
 
 
+// ===============================
+// UPDATE ADDRESS
+// ===============================
+
 const updateAddress = async (req, res) => {
   try {
     const { id } = req.params;
+
+
+    const validationResult = addressSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      return res.status(400).json({
+        message: "Invalid address details",
+        errors: validationResult.error.flatten().fieldErrors,
+      });
+    }
+
 
     const {
       fullName,
@@ -96,12 +156,14 @@ const updateAddress = async (req, res) => {
       state,
       pincode,
       isDefault,
-    } = req.body;
+    } = validationResult.data;
+
 
     const address = await Address.findOne({
       _id: id,
       userId: req.userId,
     });
+
 
     if (!address) {
       return res.status(404).json({
@@ -109,13 +171,20 @@ const updateAddress = async (req, res) => {
       });
     }
 
+
     // If setting this address as default
     if (isDefault) {
       await Address.updateMany(
-        { userId: req.userId },
-        { $set: { isDefault: false } }
+        {
+          userId: req.userId,
+          _id: { $ne: id },
+        },
+        {
+          $set: { isDefault: false },
+        }
       );
     }
+
 
     address.fullName = fullName;
     address.phone = phone;
@@ -123,9 +192,11 @@ const updateAddress = async (req, res) => {
     address.city = city;
     address.state = state;
     address.pincode = pincode;
-    address.isDefault = isDefault || false;
+    address.isDefault = isDefault;
+
 
     await address.save();
+
 
     return res.status(200).json({
       message: "Address updated successfully",
@@ -142,21 +213,27 @@ const updateAddress = async (req, res) => {
 };
 
 
+// ===============================
+// DELETE ADDRESS
+// ===============================
 
 const deleteAddress = async (req, res) => {
   try {
     const { id } = req.params;
+
 
     const address = await Address.findOneAndDelete({
       _id: id,
       userId: req.userId,
     });
 
+
     if (!address) {
       return res.status(404).json({
         message: "Address not found",
       });
     }
+
 
     return res.status(200).json({
       message: "Address deleted successfully",

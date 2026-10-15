@@ -1,5 +1,7 @@
 import express from "express";
+
 import validateProduct from "../middleware/validateProduct.js";
+import uploadProductImages from "../middleware/uploadProductImages.js";
 
 import {
   createProduct,
@@ -9,16 +11,32 @@ import {
   deleteProduct,
 } from "../controllers/productController.js";
 
+import uploadProductImagesController from "../controllers/productImageController.js";
+
 const router = express.Router();
 
-router.post("/", validateProduct, createProduct);
+// Product routes
 
 router.get("/", getProducts);
 
 router.get("/:id", getProductById);
 
-router.put("/:id", updateProduct);
+router.post("/", validateProduct, createProduct);
+
+router.put(
+  "/:id",
+  uploadProductImages.array("images", 10),
+  updateProduct
+);
 
 router.delete("/:id", deleteProduct);
+
+// Image upload
+
+router.post(
+  "/upload-images",
+  uploadProductImages.array("images", 10),
+  uploadProductImagesController
+);
 
 export default router;

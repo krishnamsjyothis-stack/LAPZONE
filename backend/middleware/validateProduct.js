@@ -32,6 +32,10 @@ const productSchema = z.object({
     .int("Stock must be a whole number")
     .min(0, "Stock cannot be negative"),
 
+  images: z
+    .array(z.string())
+    .min(3, "Product must have at least 3 images"),
+
   specifications: z
     .object({
       processor: z.string().trim().optional(),

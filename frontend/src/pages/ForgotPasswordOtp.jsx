@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api/axios";
@@ -6,56 +7,98 @@ function ForgotPasswordOtp() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Get email from Forgot Password page
   const email = location.state?.email || "";
 
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Custom alert modal
+  const [alertModal, setAlertModal] = useState({
+    show: false,
+    message: "",
+    type: "error",
+  });
+
+  const showAlert = (message, type = "error") => {
+    setAlertModal({
+      show: true,
+      message,
+      type,
+    });
+  };
+
+  const closeAlert = () => {
+    setAlertModal((prev) => ({
+      ...prev,
+      show: false,
+    }));
+  };
+
   // ================= VERIFY OTP =================
 
-const handleVerifyOtp = async () => {
-  if (otp.length !== 6) {
-    alert("OTP must be 6 digits");
-    return;
-  }
+  const handleVerifyOtp = async () => {
+    if (otp.length !== 6) {
+      showAlert("OTP must be 6 digits");
+      return;
+    }
 
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const response = await api.post("/otp/verify", {
-      email,
-      otp,
-    });
+      const response = await api.post("/otp/verify", {
+        email,
+        otp,
+      });
 
-    console.log(response.data);
+      console.log(response.data);
 
-    alert("OTP verified successfully");
+      showAlert("OTP verified successfully", "success");
 
-    // Go to reset password page
-    navigate("/reset-password", {
-      state: { email },
-    });
+      // Go to reset password page after closing the modal
+      setAlertModal({
+        show: true,
+        message: "OTP verified successfully",
+        type: "success",
+      });
 
-  } catch (error) {
-    console.error(
-      error.response?.data || error.message
-    );
+      // Store the next action for the OK button
+      setPendingAction("reset");
 
-    alert(
-      error.response?.data?.message ||
-      "Invalid OTP"
-    );
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (error) {
+      console.error(
+        error.response?.data || error.message
+      );
+
+      showAlert(
+        error.response?.data?.message || "Invalid OTP"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ================= PENDING ACTION =================
+
+  const [pendingAction, setPendingAction] = useState(null);
+
+  const handleCloseAlert = () => {
+    closeAlert();
+
+    if (pendingAction === "reset") {
+      setPendingAction(null);
+      navigate("/reset-password", {
+        state: { email },
+      });
+    } else {
+      setPendingAction(null);
+    }
+  };
 
   // ================= RESEND OTP =================
 
   const handleResendOtp = async () => {
     if (!email) {
-      alert("Email address is missing");
+      showAlert("Email address is missing");
       return;
     }
 
@@ -64,23 +107,20 @@ const handleVerifyOtp = async () => {
 
       const response = await api.post(
         "/auth/forgot-password",
-        {
-          email,
-        }
+        { email }
       );
 
       console.log(response.data);
 
       setOtp("");
 
-      alert("New OTP sent successfully");
-
+      showAlert("New OTP sent successfully", "success");
     } catch (error) {
       console.error(
         error.response?.data || error.message
       );
 
-      alert(
+      showAlert(
         error.response?.data?.message ||
           "Failed to resend OTP"
       );
@@ -122,45 +162,30 @@ const handleVerifyOtp = async () => {
         <div
           className="hidden md:flex md:w-1/2 relative bg-cover bg-center"
           style={{
-            backgroundImage:
-              "url('/lapzone-login-bg.png')",
+            backgroundImage: "url('/lapzone-login-bg.png')",
           }}
         >
-
           <div className="absolute inset-0 bg-[#10151e]/80"></div>
 
           <div className="relative z-10 w-full p-10 flex flex-col">
 
-            {/* Logo */}
-
             <div className="flex items-center gap-2">
-
               <div className="w-7 h-7 rounded-md bg-[#c51f35] flex items-center justify-center">
-
-                <span className="text-white text-xs">
-                  ⚙
-                </span>
-
+                <span className="text-white text-xs">⚙</span>
               </div>
 
               <span className="text-white text-sm font-medium">
                 LAPZONE
               </span>
 
-              <span className="text-gray-500">
-                |
-              </span>
+              <span className="text-gray-500">|</span>
 
               <span className="text-gray-400 text-sm">
                 VERIFY EMAIL
               </span>
-
             </div>
 
-            {/* Left Content */}
-
             <div className="mt-auto mb-10 max-w-md">
-
               <h2 className="text-4xl font-bold text-white leading-tight">
                 VERIFY
                 <br />
@@ -173,23 +198,16 @@ const handleVerifyOtp = async () => {
                 Enter the code to continue resetting
                 your password.
               </p>
-
             </div>
-
           </div>
-
         </div>
 
         {/* ================= RIGHT SIDE ================= */}
 
         <div className="w-full md:w-1/2 flex items-center justify-center px-8 py-10">
-
           <div className="w-full max-w-sm">
 
-            {/* Heading */}
-
             <div className="mb-8">
-
               <h1 className="text-3xl font-bold text-gray-200 uppercase">
                 Verify Email
               </h1>
@@ -203,20 +221,16 @@ const handleVerifyOtp = async () => {
                   {email}
                 </span>
               </p>
-
             </div>
-
-            {/* Instruction */}
 
             <p className="text-gray-500 text-xs mb-4">
               Please enter the 6-digit code sent to
               your email.
             </p>
 
-            {/* ================= OTP INPUT ================= */}
+            {/* OTP INPUT */}
 
             <div className="mb-7">
-
               <input
                 type="text"
                 inputMode="numeric"
@@ -227,59 +241,42 @@ const handleVerifyOtp = async () => {
                 onPaste={handlePaste}
                 maxLength={6}
                 className="
-                  w-full
-                  h-14
-                  rounded-lg
+                  w-full h-14 rounded-lg
                   bg-[#292e38]
-                  border
-                  border-transparent
-                  text-gray-100
-                  text-center
-                  text-lg
-                  font-semibold
-                  tracking-[0.5em]
+                  border border-transparent
+                  text-gray-100 text-center text-lg
+                  font-semibold tracking-[0.5em]
                   outline-none
                   focus:border-[#c51f35]
-                  focus:ring-1
-                  focus:ring-[#c51f35]
+                  focus:ring-1 focus:ring-[#c51f35]
                   placeholder:text-gray-600
                   placeholder:tracking-normal
                 "
               />
-
             </div>
 
-            {/* ================= VERIFY BUTTON ================= */}
+            {/* VERIFY BUTTON */}
 
             <button
               type="button"
               onClick={handleVerifyOtp}
               disabled={loading || otp.length !== 6}
               className="
-                w-full
-                h-12
-                rounded-lg
-                bg-[#c51f35]
-                hover:bg-[#b51b30]
-                text-white
-                text-sm
-                font-medium
-                transition
-                disabled:opacity-50
+                w-full h-12 rounded-lg
+                bg-[#c51f35] hover:bg-[#b51b30]
+                text-white text-sm font-medium
+                transition disabled:opacity-50
                 disabled:cursor-not-allowed
               "
             >
-
               {loading
                 ? "VERIFYING..."
                 : "VERIFY & CONTINUE →"}
-
             </button>
 
-            {/* ================= RESEND ================= */}
+            {/* RESEND */}
 
             <p className="text-center text-xs text-gray-500 mt-5">
-
               Didn't receive the code?
 
               <button
@@ -287,50 +284,77 @@ const handleVerifyOtp = async () => {
                 onClick={handleResendOtp}
                 disabled={loading}
                 className="
-                  text-[#c51f35]
-                  ml-1
-                  hover:underline
-                  disabled:opacity-50
+                  text-[#c51f35] ml-1
+                  hover:underline disabled:opacity-50
                 "
               >
                 Resend
               </button>
-
             </p>
-
-            {/* Divider */}
 
             <div className="border-t border-gray-700 my-7"></div>
 
-            {/* Change Email */}
+            {/* CHANGE EMAIL */}
 
             <button
               type="button"
-              onClick={() =>
-                navigate("/forgot-password")
-              }
+              onClick={() => navigate("/forgot-password")}
               className="
-                text-gray-500
-                text-xs
-                hover:text-gray-300
-                transition
+                text-gray-500 text-xs
+                hover:text-gray-300 transition
               "
             >
               ← Wrong email address? Change Email
             </button>
 
-            {/* Security */}
-
             <p className="text-center text-[8px] text-gray-700 mt-5">
               🔒 Your personal information is securely
               protected.
             </p>
-
           </div>
-
         </div>
-
       </div>
+
+      {/* ================= CUSTOM ALERT MODAL ================= */}
+
+      {alertModal.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-gray-700 bg-[#1d222c] p-6 shadow-2xl">
+
+            <div className="flex flex-col items-center text-center">
+
+              <div
+                className={`mb-4 flex h-14 w-14 items-center justify-center rounded-full text-2xl ${
+                  alertModal.type === "success"
+                    ? "bg-green-500/15 text-green-400"
+                    : "bg-[#c51f35]/15 text-[#c51f35]"
+                }`}
+              >
+                {alertModal.type === "success" ? "✓" : "!"}
+              </div>
+
+              <h2 className="text-lg font-semibold text-white">
+                {alertModal.type === "success"
+                  ? "SUCCESS"
+                  : "NOTICE"}
+              </h2>
+
+              <p className="mt-3 text-sm leading-6 text-gray-400">
+                {alertModal.message}
+              </p>
+
+              <button
+                type="button"
+                onClick={handleCloseAlert}
+                className="mt-6 w-full rounded-lg bg-[#c51f35] py-3 text-sm font-semibold text-white transition hover:bg-[#b51b30]"
+              >
+                OK
+              </button>
+
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

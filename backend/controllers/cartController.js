@@ -1,5 +1,6 @@
 import Cart from "../models/Cart.js";
 import Product from "../models/Product.js";
+import { getBestOffer } from "../utils/offerUtils.js";
 
 // ================= GET CART =================
 
@@ -16,10 +17,24 @@ const getCart = async (req, res) => {
       });
     }
 
-    return res.status(200).json({
-      message: "Cart fetched successfully",
-      cart,
-    });
+   const cartItemsWithOffers = await Promise.all(
+  cart.items.map(async (item) => {
+    const offer = await getBestOffer(item.productId);
+
+    return {
+      ...item.toObject(),
+      offer,
+    };
+  })
+);
+
+return res.status(200).json({
+  message: "Cart fetched successfully",
+  cart: {
+    ...cart.toObject(),
+    items: cartItemsWithOffers,
+  },
+});
   } catch (error) {
     console.error("Get cart error:", error);
 
@@ -37,18 +52,7 @@ const addToCart = async (req, res) => {
 
     const MAX_QUANTITY = 5;
 
-if (quantity > MAX_QUANTITY) {
-  return res.status(400).json({
-    message: `Maximum ${MAX_QUANTITY} items allowed for a product`,
-  });
-}
-
-    if (!product.isActive) {
-  return res.status(400).json({
-    message: "Product is currently unavailable",
-  });
-}
-
+    // Get product FIRST
     const product = await Product.findById(productId);
 
     if (!product) {
@@ -57,6 +61,27 @@ if (quantity > MAX_QUANTITY) {
       });
     }
 
+    // Check product status
+    if (!product.isActive) {
+      return res.status(400).json({
+        message: "Product is currently unavailable",
+      });
+    }
+
+    // Check quantity
+    if (quantity < 1) {
+      return res.status(400).json({
+        message: "Quantity must be at least 1",
+      });
+    }
+
+    if (quantity > MAX_QUANTITY) {
+      return res.status(400).json({
+        message: `Maximum ${MAX_QUANTITY} items allowed for a product`,
+      });
+    }
+
+    // Check stock
     if (product.stock < quantity) {
       return res.status(400).json({
         message: "Not enough stock available",
@@ -84,6 +109,12 @@ if (quantity > MAX_QUANTITY) {
 
       if (existingItem) {
         const newQuantity = existingItem.quantity + quantity;
+
+        if (newQuantity > MAX_QUANTITY) {
+          return res.status(400).json({
+            message: `Maximum ${MAX_QUANTITY} items allowed for a product`,
+          });
+        }
 
         if (newQuantity > product.stock) {
           return res.status(400).json({

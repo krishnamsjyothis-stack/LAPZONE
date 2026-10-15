@@ -19,7 +19,6 @@ router.post("/", authMiddleware, validateCart, addToCart);
 router.put(
   "/:productId",
   authMiddleware,
-  validateCart,
   updateCartItem
 );
 

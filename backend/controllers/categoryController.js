@@ -1,12 +1,18 @@
 import Category from "../models/Category.js";
 
 // ADD CATEGORY
+// ADD CATEGORY
 const addCategory = async (req, res) => {
   try {
     const { name } = req.body;
 
+    const trimmedName = name.trim();
+
     const existingCategory = await Category.findOne({
-      name: name.toLowerCase(),
+      name: {
+        $regex: `^${trimmedName}$`,
+        $options: "i",
+      },
     });
 
     if (existingCategory) {
@@ -16,7 +22,7 @@ const addCategory = async (req, res) => {
     }
 
     const category = await Category.create({
-      name,
+      name: trimmedName,
     });
 
     return res.status(201).json({
