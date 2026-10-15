@@ -35,9 +35,14 @@ import adminReviewRoutes from "./routes/adminReviewRoutes.js";
 const app = express();
 // ================= CORS =================
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://week2.d1ie3v9l8qfu86.amplifyapp.com",
+];
+
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: allowedOrigins,
     credentials: true,
   })
 );
@@ -158,8 +163,8 @@ app.get("/", (req, res) => {
 });
 
 // ================= START SERVER =================
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`LAPZONE backend running on port ${PORT}`);
 });
