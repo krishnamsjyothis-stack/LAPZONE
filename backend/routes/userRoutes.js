@@ -1,6 +1,8 @@
+
 import express from "express";
 
 import authMiddleware from "../middleware/authMiddleware.js";
+import upload from "../middleware/uploadMiddleware.js";
 
 import {
   getProfile,
@@ -10,18 +12,16 @@ import {
   changePassword,
 } from "../controllers/userController.js";
 
-
-import upload from "../middleware/uploadMiddleware.js";
-
 const router = express.Router();
 
+// Get the logged-in user's profile
 router.get(
   "/profile",
   authMiddleware,
   getProfile
 );
 
-
+// Update profile details and upload a profile picture
 router.put(
   "/profile",
   authMiddleware,
@@ -29,37 +29,21 @@ router.put(
   updateProfile
 );
 
-router.post(
-  "/change-email/send-otp",
-  authMiddleware,
-  sendChangeEmailOtp
-);
-router.post(
-  "/change-email/verify-otp",
-  authMiddleware,
-  verifyChangeEmailOtp
-);
-router.get("/profile", authMiddleware, getProfile);
-
-router.put(
-  "/profile",
-  authMiddleware,
-  upload.single("profileImage"),
-  updateProfile
-);
-
+// Send OTP to the new email address
 router.post(
   "/change-email/send-otp",
   authMiddleware,
   sendChangeEmailOtp
 );
 
+// Verify OTP and change the email address
 router.post(
   "/change-email/verify-otp",
   authMiddleware,
   verifyChangeEmailOtp
 );
 
+// Change the user's password
 router.post(
   "/change-password",
   authMiddleware,

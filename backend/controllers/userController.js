@@ -2,6 +2,7 @@ import User from "../models/User.js";
 import Otp from "../models/Otp.js";
 import sendEmail from "../utils/sendEmail.js";
 import bcrypt from "bcrypt";
+import fs from "fs";
 
   const getProfile = async (req, res) => {
     try {
@@ -26,68 +27,80 @@ import bcrypt from "bcrypt";
       });
     }
   };
-  const updateProfile = async (req, res) => {
-    try {
-      console.log("========== UPDATE PROFILE ==========");
-      console.log("BODY:", req.body);
-      console.log("FILE:", req.file);
-      console.log("USER ID:", req.userId);
 
-      const { name, phone } = req.body;
+const updateProfile = async (req, res) => {
+  try {
+    console.log("========== UPDATE PROFILE ==========");
+    console.log("BODY:", req.body);
+    console.log("FILE:", req.file);
+    console.log("USER ID:", req.userId);
 
-      const user = await User.findById(req.userId);
+    const { name, phone } = req.body;
 
-      if (!user) {
-        return res.status(404).json({
-          message: "User not found",
+    const user = await User.findById(req.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    // Update name if provided.
+    if (typeof name === "string" && name.trim()) {
+      user.name = name.trim();
+    }
+
+    // Update phone only when provided.
+    if (typeof phone === "string") {
+      user.phone = phone;
+    }
+
+    // Save the uploaded profile image path.
+    if (req.file) {
+      const savedImagePath = `/uploads/profile/${req.file.filename}`;
+
+      console.log("Uploaded filename:", req.file.filename);
+      console.log("Actual file path:", req.file.path);
+      console.log("File exists:", fs.existsSync(req.file.path));
+      console.log("Static URL path:", savedImagePath);
+
+      if (!fs.existsSync(req.file.path)) {
+        console.error("Uploaded image does not exist at the expected path.");
+
+        return res.status(500).json({
+          message: "Uploaded image file could not be found on the server.",
         });
       }
 
-      // Update name
-      if (name) {
-        user.name = name.trim();
-      }
-
-      // Update phone
-      user.phone = phone || "";
-
-      // Update profile image
-      if (req.file) {
-        console.log("Uploaded file:", req.file);
-
-        user.profileImage = `/uploads/profile/${req.file.filename}`;
-
-        console.log(
-          "Profile image path:",
-          user.profileImage
-        );
-      } else {
-        console.log("NO IMAGE RECEIVED");
-      }
-
-      await user.save();
-
-      console.log("SAVED USER:", user);
-
-      return res.status(200).json({
-        message: "Profile updated successfully",
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          profileImage: user.profileImage,
-        },
-      });
-
-    } catch (error) {
-      console.error("Update profile error:", error);
-
-      return res.status(500).json({
-        message: "Failed to update profile",
-      });
+      user.profileImage = savedImagePath;
+    } else {
+      console.log("NO IMAGE RECEIVED BY MULTER");
     }
-  };
+
+    await user.save();
+
+    console.log("SAVED PROFILE IMAGE:", user.profileImage);
+    console.log("========== PROFILE UPDATE COMPLETE ==========");
+
+    return res.status(200).json({
+      message: "Profile updated successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        profileImage: user.profileImage,
+      },
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+
+    return res.status(500).json({
+      message: "Failed to update profile",
+    });
+  }
+};
+
   // ================= CHANGE PASSWORD =================
 
 const changePassword = async (req, res) => {

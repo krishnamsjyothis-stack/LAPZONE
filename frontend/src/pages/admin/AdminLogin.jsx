@@ -1,4 +1,5 @@
-    import { useState } from "react";
+
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 
@@ -12,81 +13,111 @@ function AdminLogin() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Custom modal state
+  const [modal, setModal] = useState({
+    open: false,
+    title: "",
+    message: "",
+    type: "info",
+    onConfirm: null,
+  });
+
+  // Show custom modal
+  const showModal = (title, message, type = "info", onConfirm = null) => {
+    setModal({
+      open: true,
+      title,
+      message,
+      type,
+      onConfirm,
+    });
+  };
+
+  // Close custom modal
+  const closeModal = () => {
+    const action = modal.onConfirm;
+
+    setModal({
+      open: false,
+      title: "",
+      message: "",
+      type: "info",
+      onConfirm: null,
+    });
+
+    if (action) {
+      action();
+    }
+  };
+
   // ================= ADMIN LOGIN =================
 
-const handleLogin = async (e) => {
-  e.preventDefault();
+  const handleLogin = async (e) => {
+    e.preventDefault();
 
-  if (!email.trim() || !password) {
-    alert("Please enter email and password");
-    return;
-  }
+    if (!email.trim() || !password) {
+      showModal(
+        "Missing Details",
+        "Please enter your email address and password.",
+        "warning"
+      );
+      return;
+    }
 
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const response = await api.post(
-      "/admin/login",
-      {
-        email: email.trim().toLowerCase(),
-        password,
-      },
-      {
-        withCredentials: true,
-      }
-    );
+      const response = await api.post(
+        "/admin/login",
+        {
+          email: email.trim().toLowerCase(),
+          password,
+        },
+        {
+          withCredentials: true,
+        }
+      );
 
-    console.log("ADMIN LOGIN:", response.data);
+      console.log("ADMIN LOGIN:", response.data);
 
-    alert("Admin login successful!");
+      showModal(
+        "Login Successful",
+        "Welcome to the LAPZONE Admin Panel.",
+        "success",
+        () => navigate("/admin/dashboard", { replace: true })
+      );
+    } catch (error) {
+      console.error(
+        "ADMIN LOGIN ERROR:",
+        error.response?.data || error.message
+      );
 
-    navigate("/admin/dashboard", { replace: true });
+      showModal(
+        "Login Failed",
+        error.response?.data?.message || "Admin login failed. Please check your credentials and try again.",
+        "error"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  } catch (error) {
-    console.error(
-      "ADMIN LOGIN ERROR:",
-      error.response?.data || error.message
-    );
-
-    alert(
-      error.response?.data?.message ||
-        "Admin login failed"
-    );
-  } finally {
-    setLoading(false);
-  }
-};
   // ================= UI =================
 
   return (
     <div className="min-h-screen flex bg-[#384358]">
-
-      {/* =====================================================
-          LEFT SIDE
-      ===================================================== */}
-
+      {/* LEFT SIDE */}
       <div className="hidden md:flex md:w-[43%] min-h-screen bg-[#384358] relative">
-
         <div className="w-full flex flex-col px-12 lg:px-16 py-12">
-
           {/* Gear Icon */}
-
           <div className="flex-1 flex items-center justify-center">
-
             <div className="w-20 h-20 rounded-lg border-4 border-[#c51f35] flex items-center justify-center">
-
-              <span className="text-5xl text-[#c51f35]">
-                ⚙
-              </span>
-
+              <span className="text-5xl text-[#c51f35]">⚙</span>
             </div>
-
           </div>
 
           {/* Branding */}
-
           <div className="pb-10">
-
             <h1 className="text-5xl lg:text-6xl font-black tracking-tight text-white">
               LAPZONE
             </h1>
@@ -104,40 +135,24 @@ const handleLogin = async (e) => {
               <br />
               logistics.
             </p>
-
           </div>
-
         </div>
       </div>
 
-
-      {/* =====================================================
-          RIGHT SIDE
-      ===================================================== */}
-
+      {/* RIGHT SIDE */}
       <div className="w-full md:w-[57%] min-h-screen bg-[#b91f35] flex flex-col">
-
         {/* Main Content */}
-
         <div className="flex-1 flex items-center justify-center px-7 sm:px-12 lg:px-20">
-
           <div className="w-full max-w-lg">
-
             {/* Logo */}
-
             <div className="text-right mb-12">
-
               <span className="text-white text-2xl font-black tracking-tight">
                 LAPZONE
               </span>
-
             </div>
 
-
             {/* Heading */}
-
             <div className="mb-10">
-
               <h2 className="text-4xl lg:text-5xl font-black text-white">
                 ADMIN LOGIN
               </h2>
@@ -145,20 +160,12 @@ const handleLogin = async (e) => {
               <p className="text-white/75 text-sm mt-3">
                 Enter your credentials to access the admin panel.
               </p>
-
             </div>
 
-
-            {/* =================================================
-                LOGIN FORM
-            ================================================= */}
-
+            {/* LOGIN FORM */}
             <form onSubmit={handleLogin}>
-
               {/* Email */}
-
               <div className="mb-7">
-
                 <label
                   htmlFor="admin-email"
                   className="block text-xs font-bold tracking-widest text-white mb-3"
@@ -167,9 +174,6 @@ const handleLogin = async (e) => {
                 </label>
 
                 <div className="relative">
-
-                  {/* Email Icon */}
-
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white text-lg">
                     ✉
                   </span>
@@ -179,22 +183,16 @@ const handleLogin = async (e) => {
                     type="email"
                     placeholder="admin@lapzone.com"
                     value={email}
-                    onChange={(e) =>
-                      setEmail(e.target.value)
-                    }
+                    onChange={(e) => setEmail(e.target.value)}
                     autoComplete="email"
+                    required
                     className="w-full h-12 rounded-md border border-white/40 bg-transparent pl-12 pr-4 text-white placeholder:text-white/50 outline-none focus:border-white focus:ring-1 focus:ring-white"
                   />
-
                 </div>
-
               </div>
 
-
               {/* Password */}
-
               <div className="mb-4">
-
                 <label
                   htmlFor="admin-password"
                   className="block text-xs font-bold tracking-widest text-white mb-3"
@@ -203,163 +201,160 @@ const handleLogin = async (e) => {
                 </label>
 
                 <div className="relative">
-
-                  {/* Lock Icon */}
-
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white text-lg">
                     🔒
                   </span>
 
                   <input
                     id="admin-password"
-                    type={
-                      showPassword
-                        ? "text"
-                        : "password"
-                    }
+                    type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={password}
-                    onChange={(e) =>
-                      setPassword(e.target.value)
-                    }
+                    onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
+                    required
                     className="w-full h-12 rounded-md border border-white/40 bg-transparent pl-12 pr-12 text-white placeholder:text-white/50 outline-none focus:border-white focus:ring-1 focus:ring-white"
                   />
 
                   {/* Show Password */}
-
                   <button
                     type="button"
-                    onClick={() =>
-                      setShowPassword(
-                        !showPassword
-                      )
-                    }
+                    onClick={() => setShowPassword((previous) => !previous)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white text-lg"
                   >
                     {showPassword ? "◉" : "◌"}
                   </button>
-
                 </div>
-
               </div>
 
-
               {/* Remember + Forgot */}
-
-              <div className="flex items-center justify-between mb-7">
-
+              <div className="flex items-center justify-between gap-3 mb-7">
                 <label className="flex items-center gap-2 text-sm text-white cursor-pointer">
-
                   <input
                     type="checkbox"
                     checked={rememberMe}
-                    onChange={(e) =>
-                      setRememberMe(
-                        e.target.checked
-                      )
-                    }
+                    onChange={(e) => setRememberMe(e.target.checked)}
                     className="w-4 h-4 accent-[#384358]"
                   />
 
-                  <span>
-                    Remember Me
-                  </span>
-
+                  <span>Remember Me</span>
                 </label>
-
 
                 <button
                   type="button"
                   onClick={() =>
-                    alert(
-                      "Admin password recovery will be added next."
+                    showModal(
+                      "Password Recovery",
+                      "Admin password recovery will be added next.",
+                      "info"
                     )
                   }
                   className="text-xs font-bold tracking-wide text-white hover:underline"
                 >
                   FORGOT PASSWORD?
                 </button>
-
               </div>
 
-
               {/* Login Button */}
-
               <button
                 type="submit"
                 disabled={loading}
                 className="w-full h-12 rounded-md bg-[#384358] hover:bg-[#30394c] text-white text-sm font-bold tracking-widest transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-
-                {loading
-                  ? "LOGGING IN..."
-                  : "LOGIN TO DASHBOARD →"}
-
+                {loading ? "LOGGING IN..." : "LOGIN TO DASHBOARD →"}
               </button>
-
             </form>
 
-
             {/* Secure Access */}
-
             <div className="flex items-center justify-center gap-2 mt-8 text-white/75 text-sm">
-
-              <span>
-                🔒
-              </span>
-
-              <span>
-                Secure admin access
-              </span>
-
+              <span>🔒</span>
+              <span>Secure admin access</span>
             </div>
-
           </div>
-
         </div>
 
-
-        {/* =====================================================
-            FOOTER
-        ===================================================== */}
-
+        {/* FOOTER */}
         <footer className="border-t border-white/20 px-8 sm:px-12 lg:px-16 py-7">
-
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-
             <p className="text-[10px] tracking-widest text-white/70">
               © 2026 LAPZONE. ALL RIGHTS RESERVED.
             </p>
 
             <div className="flex items-center gap-5 text-[10px] tracking-widest text-white/70">
-
-              <button
-                type="button"
-                className="hover:text-white"
-              >
+              <button type="button" className="hover:text-white">
                 SUPPORT
               </button>
 
-              <span>
-                |
-              </span>
+              <span>|</span>
 
-              <button
-                type="button"
-                className="hover:text-white"
-              >
+              <button type="button" className="hover:text-white">
                 PRIVACY
               </button>
-
             </div>
-
           </div>
-
         </footer>
-
       </div>
 
+      {/* CUSTOM MODAL */}
+      {modal.open && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-4 py-6"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              closeModal();
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-modal-title"
+            className="w-full max-w-md rounded-xl border border-[#414d5e] bg-[#202936] p-6 shadow-2xl"
+          >
+            {/* Modal Icon */}
+            <div
+              className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold ${
+                modal.type === "success"
+                  ? "bg-green-500/15 text-green-400"
+                  : modal.type === "error"
+                  ? "bg-red-500/15 text-red-400"
+                  : modal.type === "warning"
+                  ? "bg-yellow-500/15 text-yellow-400"
+                  : "bg-blue-500/15 text-blue-400"
+              }`}
+            >
+              {modal.type === "success"
+                ? "✓"
+                : modal.type === "error"
+                ? "✕"
+                : modal.type === "warning"
+                ? "!"
+                : "i"}
+            </div>
+
+            <h3
+              id="admin-modal-title"
+              className="text-center text-xl font-bold text-white"
+            >
+              {modal.title}
+            </h3>
+
+            <p className="mt-3 text-center text-sm leading-6 text-gray-300 break-words">
+              {modal.message}
+            </p>
+
+            <button
+              type="button"
+              onClick={closeModal}
+              autoFocus
+              className="mt-6 w-full rounded-lg bg-[#b91f35] px-4 py-3 text-sm font-bold tracking-wide text-white transition hover:bg-[#a5192e] focus:outline-none focus:ring-2 focus:ring-white/70"
+            >
+              {modal.onConfirm ? "CONTINUE" : "OK"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

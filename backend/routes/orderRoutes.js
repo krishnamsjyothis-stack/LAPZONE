@@ -64,7 +64,7 @@ router.patch(
 // =========================================
 
 router.patch(
-  "/:id/items/:productId/cancel",
+  "/:id/items/:itemId/cancel",
   authMiddleware,
   cancelOrderItem
 );

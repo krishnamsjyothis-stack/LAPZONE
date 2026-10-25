@@ -11,6 +11,15 @@ const AdminCoupons = () => {
 
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [couponToDelete, setCouponToDelete] = useState(null);
+
+  const [modal, setModal] = useState({
+    open: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
 
   const [form, setForm] = useState({
     code: "",
@@ -24,6 +33,23 @@ const AdminCoupons = () => {
   });
 
   // ==========================================
+  // CUSTOM NOTIFICATION MODAL
+  // ==========================================
+
+  const showModal = (title, message, type = "info") => {
+    setModal({ open: true, title, message, type });
+  };
+
+  const closeModal = () => {
+    setModal({
+      open: false,
+      title: "",
+      message: "",
+      type: "info",
+    });
+  };
+
+  // ==========================================
   // FETCH COUPONS
   // ==========================================
 
@@ -32,10 +58,7 @@ const AdminCoupons = () => {
       setLoading(true);
       setErrorMessage("");
 
-      // Admin authentication uses the session cookie.
-      // Axios already has withCredentials: true.
       const response = await api.get("/coupon");
-
       setCoupons(response.data.coupons || []);
     } catch (error) {
       console.error(
@@ -58,10 +81,7 @@ const AdminCoupons = () => {
 
   const fetchOrders = useCallback(async () => {
     try {
-      const response = await api.get(
-        "/admin/orders?limit=1000"
-      );
-
+      const response = await api.get("/admin/orders?limit=1000");
       setOrders(response.data.orders || []);
     } catch (error) {
       console.error(
@@ -114,7 +134,11 @@ const AdminCoupons = () => {
     e.preventDefault();
 
     if (!form.code.trim()) {
-      alert("Coupon code is required.");
+      showModal(
+        "Coupon Code Required",
+        "Please enter a coupon code.",
+        "error"
+      );
       return;
     }
 
@@ -138,7 +162,11 @@ const AdminCoupons = () => {
       !Number.isFinite(discountValue) ||
       discountValue <= 0
     ) {
-      alert("Enter a valid discount value greater than zero.");
+      showModal(
+        "Invalid Discount",
+        "Enter a discount value greater than zero.",
+        "error"
+      );
       return;
     }
 
@@ -146,7 +174,11 @@ const AdminCoupons = () => {
       form.discountType === "PERCENTAGE" &&
       discountValue > 100
     ) {
-      alert("Percentage discount cannot exceed 100%.");
+      showModal(
+        "Invalid Discount",
+        "Percentage discount cannot exceed 100%.",
+        "error"
+      );
       return;
     }
 
@@ -154,7 +186,11 @@ const AdminCoupons = () => {
       !Number.isFinite(minimumOrderAmount) ||
       minimumOrderAmount < 0
     ) {
-      alert("Enter a valid minimum order amount.");
+      showModal(
+        "Invalid Amount",
+        "Enter a valid minimum order amount.",
+        "error"
+      );
       return;
     }
 
@@ -163,21 +199,32 @@ const AdminCoupons = () => {
       (!Number.isFinite(maximumDiscount) ||
         maximumDiscount < 0)
     ) {
-      alert("Enter a valid maximum discount.");
+      showModal(
+        "Invalid Amount",
+        "Enter a valid maximum discount.",
+        "error"
+      );
       return;
     }
 
     if (
       usageLimit !== null &&
-      (!Number.isInteger(usageLimit) ||
-        usageLimit < 1)
+      (!Number.isInteger(usageLimit) || usageLimit < 1)
     ) {
-      alert("Usage limit must be a positive whole number.");
+      showModal(
+        "Invalid Usage Limit",
+        "Usage limit must be a positive whole number.",
+        "error"
+      );
       return;
     }
 
     if (!form.expiryDate) {
-      alert("Expiry date is required.");
+      showModal(
+        "Expiry Date Required",
+        "Please select an expiry date.",
+        "error"
+      );
       return;
     }
 
@@ -191,12 +238,20 @@ const AdminCoupons = () => {
       Number.isNaN(startDate.getTime()) ||
       Number.isNaN(expiryDate.getTime())
     ) {
-      alert("Please enter valid dates.");
+      showModal(
+        "Invalid Dates",
+        "Please enter valid dates.",
+        "error"
+      );
       return;
     }
 
     if (expiryDate <= startDate) {
-      alert("Expiry date must be later than the start date.");
+      showModal(
+        "Invalid Date Range",
+        "Expiry date must be later than the start date.",
+        "error"
+      );
       return;
     }
 
@@ -214,24 +269,28 @@ const AdminCoupons = () => {
         expiryDate: expiryDate.toISOString(),
       });
 
-      alert(
-        response.data?.message ||
-          "Coupon created successfully."
-      );
-
       resetForm();
       setShowForm(false);
 
       await fetchCoupons();
+
+      showModal(
+        "Coupon Created",
+        response.data?.message ||
+          "Coupon created successfully.",
+        "success"
+      );
     } catch (error) {
       console.error(
         "Create coupon error:",
         error.response?.data || error.message
       );
 
-      alert(
+      showModal(
+        "Creation Failed",
         error.response?.data?.message ||
-          "Failed to create coupon."
+          "Failed to create coupon.",
+        "error"
       );
     } finally {
       setCreating(false);
@@ -242,29 +301,39 @@ const AdminCoupons = () => {
   // DELETE COUPON
   // ==========================================
 
-  const handleDelete = async (id) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this coupon?"
-    );
-
-    if (!confirmed) return;
+  const handleDelete = async () => {
+    if (!couponToDelete || deleting) return;
 
     try {
-      await api.delete(`/coupon/${id}`);
+      setDeleting(true);
 
-      alert("Coupon deleted successfully.");
+      await api.delete(`/coupon/${couponToDelete._id}`);
+
+      setCouponToDelete(null);
 
       await fetchCoupons();
+
+      showModal(
+        "Coupon Deleted",
+        "The coupon has been deleted successfully.",
+        "success"
+      );
     } catch (error) {
       console.error(
         "Delete coupon error:",
         error.response?.data || error.message
       );
 
-      alert(
+      setCouponToDelete(null);
+
+      showModal(
+        "Deletion Failed",
         error.response?.data?.message ||
-          "Failed to delete coupon."
+          "Failed to delete coupon.",
+        "error"
       );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -314,7 +383,7 @@ const AdminCoupons = () => {
     <div className="min-h-screen bg-[#151923] text-white">
       <AdminSidebar />
 
-     <main className="flex-1 min-w-0">
+      <main className="flex-1 min-w-0">
         {/* HEADER */}
         <header className="min-h-16 bg-[#151923] border-b border-[#2c3340] px-6 py-4 flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -410,9 +479,7 @@ const AdminCoupons = () => {
           {/* COUPON TABLE */}
           <div className="bg-[#293444] rounded-lg overflow-hidden border border-[#354158]">
             <div className="px-5 py-4 border-b border-[#465168]">
-              <h2 className="text-sm font-semibold">
-                COUPONS
-              </h2>
+              <h2 className="text-sm font-semibold">COUPONS</h2>
 
               <p className="text-[10px] text-gray-400 mt-1">
                 All available LAPZONE coupons
@@ -462,12 +529,11 @@ const AdminCoupons = () => {
                             coupon.code.toUpperCase()
                       );
 
-                      const totalDiscountGiven =
-                        couponOrders.reduce(
-                          (total, order) =>
-                            total + Number(order.discount || 0),
-                          0
-                        );
+                      const totalDiscountGiven = couponOrders.reduce(
+                        (total, order) =>
+                          total + Number(order.discount || 0),
+                        0
+                      );
 
                       const now = new Date();
                       const expired =
@@ -581,7 +647,7 @@ const AdminCoupons = () => {
                               <button
                                 type="button"
                                 onClick={() =>
-                                  handleDelete(coupon._id)
+                                  setCouponToDelete(coupon)
                                 }
                                 className="bg-red-500/10 hover:bg-red-500/20 border border-red-400/20 text-red-300 px-4 py-2 rounded-md text-[10px] transition"
                               >
@@ -790,12 +856,128 @@ const AdminCoupons = () => {
                     disabled={creating}
                     className="bg-[#b51a2b] hover:bg-[#d92d3d] disabled:opacity-50 px-5 py-2.5 rounded-md text-xs font-medium transition"
                   >
-                    {creating
-                      ? "CREATING..."
-                      : "CREATE COUPON"}
+                    {creating ? "CREATING..." : "CREATE COUPON"}
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* CUSTOM NOTIFICATION MODAL */}
+        {modal.open && (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
+            onClick={closeModal}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="coupon-modal-title"
+              className="w-full max-w-md rounded-xl border border-[#3c4658] bg-[#202632] p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-4">
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl ${
+                    modal.type === "success"
+                      ? "bg-green-500/15 text-green-400"
+                      : modal.type === "error"
+                      ? "bg-red-500/15 text-red-400"
+                      : "bg-blue-500/15 text-blue-400"
+                  }`}
+                >
+                  {modal.type === "success"
+                    ? "✓"
+                    : modal.type === "error"
+                    ? "!"
+                    : "i"}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <h2
+                    id="coupon-modal-title"
+                    className="text-base font-semibold text-white"
+                  >
+                    {modal.title}
+                  </h2>
+
+                  <p className="mt-2 text-sm leading-6 text-gray-400">
+                    {modal.message}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="rounded-md bg-[#b51a2b] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#d92d3d]"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* CUSTOM DELETE CONFIRMATION MODAL */}
+        {couponToDelete && (
+          <div
+            className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4"
+            onClick={() =>
+              !deleting && setCouponToDelete(null)
+            }
+          >
+            <div
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="delete-coupon-title"
+              className="w-full max-w-md rounded-xl border border-[#3c4658] bg-[#202632] p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-500/15 text-xl text-red-400">
+                  !
+                </div>
+
+                <div>
+                  <h2
+                    id="delete-coupon-title"
+                    className="text-base font-semibold text-white"
+                  >
+                    Delete Coupon?
+                  </h2>
+
+                  <p className="mt-2 text-sm leading-6 text-gray-400">
+                    Are you sure you want to delete{" "}
+                    <span className="font-semibold text-[#ffb2b8]">
+                      {couponToDelete.code}
+                    </span>
+                    ? This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => setCouponToDelete(null)}
+                  className="rounded-md border border-[#465168] bg-[#151923] px-5 py-2.5 text-xs text-gray-300 transition hover:bg-[#2a3140] disabled:opacity-50"
+                >
+                  CANCEL
+                </button>
+
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={handleDelete}
+                  className="rounded-md bg-[#b51a2b] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#d92d3d] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {deleting ? "DELETING..." : "DELETE COUPON"}
+                </button>
+              </div>
             </div>
           </div>
         )}

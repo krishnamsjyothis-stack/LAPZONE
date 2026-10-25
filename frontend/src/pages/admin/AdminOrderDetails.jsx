@@ -18,6 +18,9 @@ import {
   ShoppingBag,
   Boxes,
   ShieldCheck,
+  X,
+  AlertTriangle,
+  Info,
 } from "lucide-react";
 import api from "../../api/axios";
 
@@ -74,15 +77,28 @@ const formatDate = (value) => {
   });
 };
 
+
+const BACKEND_URL =
+  import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+
 const getProductImage = (image) => {
   if (!image) return "/placeholder.png";
 
-  if (/^https?:\/\//i.test(image)) return image;
+  if (typeof image !== "string") {
+    return "/placeholder.png";
+  }
 
-  return `https://lapzone-backend-psqn.onrender.com${
-    image.startsWith("/") ? image : `/${image}`
-  }`;
+  if (/^https?:\/\//i.test(image)) {
+    return image;
+  }
+
+  return `${BACKEND_URL}/${image.replace(/^\/+/, "")}`;
 };
+
+
+// =========================
+// REUSABLE COMPONENTS
+// =========================
 
 const Card = ({ children, className = "" }) => (
   <section
@@ -98,13 +114,16 @@ const SectionHeading = ({ icon: Icon, title, subtitle, action }) => (
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#b51a2b]/15 text-[#ff7b88]">
         <Icon size={20} />
       </div>
+
       <div>
         <h2 className="font-semibold text-white">{title}</h2>
+
         {subtitle && (
           <p className="mt-1 text-xs text-slate-400">{subtitle}</p>
         )}
       </div>
     </div>
+
     {action}
   </div>
 );
@@ -115,6 +134,7 @@ const InfoItem = ({ label, value, icon: Icon }) => (
       {Icon && <Icon size={14} className="text-slate-500" />}
       {label}
     </div>
+
     <p className="break-words text-sm font-medium text-slate-100">
       {value || "Not available"}
     </p>
@@ -133,6 +153,123 @@ const StatusBadge = ({ status }) => (
   </span>
 );
 
+// =========================
+// CUSTOM MODAL
+// =========================
+
+const CustomModal = ({
+  modal,
+  onClose,
+  onConfirm,
+  busy = false,
+}) => {
+  if (!modal.open) return null;
+
+  const isConfirm = modal.type === "confirm";
+
+  const Icon =
+    modal.type === "success"
+      ? CheckCircle2
+      : modal.type === "error" || modal.type === "confirm"
+      ? AlertTriangle
+      : Info;
+
+  const iconStyle =
+    modal.type === "success"
+      ? "bg-emerald-500/15 text-emerald-400"
+      : modal.type === "error" || modal.type === "confirm"
+      ? "bg-red-500/15 text-red-400"
+      : modal.type === "warning"
+      ? "bg-amber-500/15 text-amber-400"
+      : "bg-blue-500/15 text-blue-400";
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-4 py-6"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !busy) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="order-modal-title"
+        aria-describedby="order-modal-message"
+        className="w-full max-w-md rounded-2xl border border-slate-700 bg-[#1b2433] p-6 shadow-2xl"
+      >
+        <div className="mb-4 flex items-start justify-between">
+          <div
+            className={`flex h-12 w-12 items-center justify-center rounded-xl ${iconStyle}`}
+          >
+            <Icon size={24} />
+          </div>
+
+          {!busy && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close dialog"
+              className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-700 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
+
+        <h3
+          id="order-modal-title"
+          className="text-xl font-bold text-white"
+        >
+          {modal.title}
+        </h3>
+
+        <p
+          id="order-modal-message"
+          className="mt-3 whitespace-pre-line break-words text-sm leading-6 text-slate-300"
+        >
+          {modal.message}
+        </p>
+
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          {isConfirm && (
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={busy}
+              className="rounded-xl border border-slate-600 px-5 py-3 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 disabled:opacity-50"
+            >
+              CANCEL
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={isConfirm ? onConfirm : onClose}
+            disabled={busy}
+            className={`inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
+              isConfirm
+                ? "bg-[#b51a2b] hover:bg-[#961626]"
+                : "bg-slate-700 hover:bg-slate-600"
+            }`}
+          >
+            {busy && <RefreshCw size={15} className="animate-spin" />}
+
+            {busy
+              ? "PLEASE WAIT..."
+              : modal.confirmText || (isConfirm ? "CONFIRM" : "OK")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// =========================
+// MAIN COMPONENT
+// =========================
+
 const AdminOrderDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -142,6 +279,44 @@ const AdminOrderDetails = () => {
   const [status, setStatus] = useState("");
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
+  const [modal, setModal] = useState({
+    open: false,
+    title: "",
+    message: "",
+    type: "info",
+    confirmText: "OK",
+  });
+
+  const [pendingStatus, setPendingStatus] = useState("");
+
+  const showModal = (
+    title,
+    message,
+    type = "info",
+    confirmText = "OK"
+  ) => {
+    setModal({
+      open: true,
+      title,
+      message,
+      type,
+      confirmText,
+    });
+  };
+
+  const closeModal = () => {
+    if (updatingStatus) return;
+
+    setModal((previous) => ({
+      ...previous,
+      open: false,
+    }));
+  };
+
+  // =========================
+  // FETCH ORDER
+  // =========================
+
   const fetchOrder = useCallback(async () => {
     try {
       setLoading(true);
@@ -149,8 +324,13 @@ const AdminOrderDetails = () => {
       const token = getToken();
 
       if (!token) {
-        alert("Admin token not found. Please log in again.");
-        navigate("/admin/login");
+        showModal(
+          "Login Required",
+          "Admin token not found. Please log in again.",
+          "warning",
+          "GO TO LOGIN"
+        );
+
         return;
       }
 
@@ -174,42 +354,85 @@ const AdminOrderDetails = () => {
         error.response?.data || error.message
       );
 
-      alert(
+      showModal(
+        "Unable to Load Order",
         error.response?.data?.message ||
-          "Failed to fetch order details."
+          error.message ||
+          "Failed to fetch order details.",
+        "error",
+        "BACK TO ORDERS"
       );
-
-      navigate("/admin/orders");
     } finally {
       setLoading(false);
     }
-  }, [id, navigate]);
+  }, [id]);
 
-  const handleStatusUpdate = async () => {
+  // =========================
+  // UPDATE STATUS
+  // =========================
+
+  const handleStatusUpdate = () => {
     if (!status) {
-      alert("Please select an order status.");
+      showModal(
+        "Status Required",
+        "Please select an order status.",
+        "warning"
+      );
       return;
     }
 
-    if (status === order?.orderStatus) {
-      alert("The selected status is already active.");
+    if (status === (order?.orderStatus || "Pending")) {
+      showModal(
+        "No Changes",
+        "The selected status is already active.",
+        "info"
+      );
+      return;
+    }
+
+    setPendingStatus(status);
+
+    showModal(
+      "Confirm Status Update",
+      `Change this order's status from "${order?.orderStatus || "Pending"}" to "${status}"?`,
+      "confirm",
+      "UPDATE STATUS"
+    );
+  };
+
+  const confirmStatusUpdate = async () => {
+    if (updatingStatus || !pendingStatus) return;
+
+    const nextStatus = pendingStatus;
+    const token = getToken();
+
+    if (!token) {
+      setModal({
+        open: false,
+        title: "",
+        message: "",
+        type: "info",
+        confirmText: "OK",
+      });
+
+      setPendingStatus("");
+
+      showModal(
+        "Login Required",
+        "Admin token not found. Please log in again.",
+        "warning",
+        "GO TO LOGIN"
+      );
+
       return;
     }
 
     try {
-      const token = getToken();
-
-      if (!token) {
-        alert("Admin token not found. Please log in again.");
-        navigate("/admin/login");
-        return;
-      }
-
       setUpdatingStatus(true);
 
       const response = await api.patch(
         `/admin/orders/${id}/status`,
-        { orderStatus: status },
+        { orderStatus: nextStatus },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -219,28 +442,39 @@ const AdminOrderDetails = () => {
 
       const updatedOrder = response.data?.order ?? response.data;
 
-      if (!updatedOrder) {
+      if (!updatedOrder || typeof updatedOrder !== "object") {
         throw new Error("Updated order was not returned by the server.");
       }
 
       setOrder((previous) => ({
         ...previous,
         ...updatedOrder,
-        orderStatus: updatedOrder.orderStatus || status,
+        orderStatus: updatedOrder.orderStatus || nextStatus,
       }));
 
-      setStatus(updatedOrder.orderStatus || status);
+      setStatus(updatedOrder.orderStatus || nextStatus);
+      setPendingStatus("");
 
-      alert("Order status updated successfully.");
+      showModal(
+        "Status Updated",
+        response.data?.message ||
+          `Order status has been updated to "${updatedOrder.orderStatus || nextStatus}".`,
+        "success"
+      );
     } catch (error) {
       console.error(
         "Update status error:",
         error.response?.data || error.message
       );
 
-      alert(
+      setPendingStatus("");
+
+      showModal(
+        "Update Failed",
         error.response?.data?.message ||
-          "Failed to update order status."
+          error.message ||
+          "Failed to update order status.",
+        "error"
       );
     } finally {
       setUpdatingStatus(false);
@@ -251,34 +485,90 @@ const AdminOrderDetails = () => {
     fetchOrder();
   }, [fetchOrder]);
 
+  // Handle modal actions
+  const handleModalAction = () => {
+    if (modal.confirmText === "GO TO LOGIN") {
+      setModal((previous) => ({ ...previous, open: false }));
+      navigate("/admin/login", { replace: true });
+      return;
+    }
+
+    if (modal.confirmText === "BACK TO ORDERS") {
+      setModal((previous) => ({ ...previous, open: false }));
+      navigate("/admin/orders");
+      return;
+    }
+
+    if (modal.type === "confirm") {
+      confirmStatusUpdate();
+      return;
+    }
+
+    closeModal();
+  };
+
+  // =========================
+  // LOADING
+  // =========================
+
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#11161e]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-700 border-t-[#b51a2b]" />
-          <p className="text-sm text-slate-400">Loading order details...</p>
+      <>
+        <div className="flex min-h-screen items-center justify-center bg-[#11161e]">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-700 border-t-[#b51a2b]" />
+            <p className="text-sm text-slate-400">
+              Loading order details...
+            </p>
+          </div>
         </div>
-      </div>
+
+        <CustomModal
+          modal={modal}
+          onClose={closeModal}
+          onConfirm={handleModalAction}
+          busy={updatingStatus}
+        />
+      </>
     );
   }
 
+  // =========================
+  // ORDER NOT FOUND
+  // =========================
+
   if (!order) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#11161e] px-4 text-center">
-        <Package size={42} className="text-slate-500" />
-        <h2 className="text-xl font-semibold text-white">
-          Order not available
-        </h2>
-        <button
-          type="button"
-          onClick={() => navigate("/admin/orders")}
-          className="rounded-xl bg-[#b51a2b] px-5 py-3 text-sm font-semibold text-white hover:bg-[#961626]"
-        >
-          Back to Orders
-        </button>
-      </div>
+      <>
+        <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#11161e] px-4 text-center">
+          <Package size={42} className="text-slate-500" />
+
+          <h2 className="text-xl font-semibold text-white">
+            Order not available
+          </h2>
+
+          <button
+            type="button"
+            onClick={() => navigate("/admin/orders")}
+            className="rounded-xl bg-[#b51a2b] px-5 py-3 text-sm font-semibold text-white hover:bg-[#961626]"
+          >
+            Back to Orders
+          </button>
+        </div>
+
+        <CustomModal
+          modal={modal}
+          onClose={closeModal}
+          onConfirm={handleModalAction}
+          busy={updatingStatus}
+        />
+      </>
     );
   }
+
+  // =========================
+  // ORDER DATA
+  // =========================
 
   const items = order.items || [];
   const shipping = order.shippingAddress || {};
@@ -295,9 +585,14 @@ const AdminOrderDetails = () => {
 
   const discount = Number(order.discount || 0);
   const deliveryCharge = Number(order.deliveryCharge || 0);
+
   const total = Number(
     order.totalAmount ?? subtotal - discount + deliveryCharge
   );
+
+  // =========================
+  // PAGE UI
+  // =========================
 
   return (
     <div className="min-h-screen bg-[#11161e] px-4 py-6 text-slate-200 sm:px-6 lg:px-8">
@@ -318,6 +613,7 @@ const AdminOrderDetails = () => {
               <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
                 Order Details
               </h1>
+
               <StatusBadge status={order.orderStatus} />
             </div>
 
@@ -332,7 +628,8 @@ const AdminOrderDetails = () => {
           <button
             type="button"
             onClick={fetchOrder}
-            className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-slate-700 bg-[#1b2433] px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-[#253146]"
+            disabled={loading || updatingStatus}
+            className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-slate-700 bg-[#1b2433] px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-[#253146] disabled:opacity-50"
           >
             <RefreshCw size={16} />
             Refresh order
@@ -346,9 +643,11 @@ const AdminOrderDetails = () => {
               <span className="text-sm text-slate-400">Order total</span>
               <Receipt className="text-blue-400" size={21} />
             </div>
+
             <p className="mt-4 text-2xl font-bold text-white">
               ₹{formatCurrency(total)}
             </p>
+
             <p className="mt-2 text-xs text-slate-500">
               Final order amount
             </p>
@@ -359,9 +658,11 @@ const AdminOrderDetails = () => {
               <span className="text-sm text-slate-400">Products</span>
               <ShoppingBag className="text-violet-400" size={21} />
             </div>
+
             <p className="mt-4 text-2xl font-bold text-white">
               {items.length}
             </p>
+
             <p className="mt-2 text-xs text-slate-500">
               Different product lines
             </p>
@@ -372,9 +673,11 @@ const AdminOrderDetails = () => {
               <span className="text-sm text-slate-400">Payment</span>
               <ShieldCheck className="text-emerald-400" size={21} />
             </div>
+
             <p className="mt-4 text-lg font-bold text-white">
               {paymentStatus}
             </p>
+
             <p className="mt-2 text-xs text-slate-500">
               {order.paymentMethod || "Payment method unavailable"}
             </p>
@@ -385,6 +688,7 @@ const AdminOrderDetails = () => {
               <span className="text-sm text-slate-400">Order placed</span>
               <CalendarDays className="text-amber-400" size={21} />
             </div>
+
             <p className="mt-4 text-lg font-bold text-white">
               {order.createdAt
                 ? new Date(order.createdAt).toLocaleDateString("en-IN", {
@@ -394,6 +698,7 @@ const AdminOrderDetails = () => {
                   })
                 : "Unavailable"}
             </p>
+
             <p className="mt-2 text-xs text-slate-500">
               {formatDate(order.createdAt)}
             </p>
@@ -440,7 +745,8 @@ const AdminOrderDetails = () => {
               type="button"
               onClick={handleStatusUpdate}
               disabled={
-                updatingStatus || status === (order.orderStatus || "Pending")
+                updatingStatus ||
+                status === (order.orderStatus || "Pending")
               }
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#b51a2b] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#961626] disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -474,16 +780,19 @@ const AdminOrderDetails = () => {
                 value={shipping.fullName || order.userId?.name}
                 icon={UserRound}
               />
+
               <InfoItem
                 label="Email address"
                 value={order.userId?.email}
                 icon={Mail}
               />
+
               <InfoItem
                 label="Phone number"
                 value={shipping.phone || order.userId?.phone}
                 icon={Phone}
               />
+
               <InfoItem
                 label="Customer ID"
                 value={
@@ -508,10 +817,12 @@ const AdminOrderDetails = () => {
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
                     <MapPin size={21} />
                   </div>
+
                   <div>
                     <p className="font-semibold text-white">
                       {shipping.fullName || "Recipient"}
                     </p>
+
                     <p className="mt-1 text-xs text-slate-400">
                       Delivery destination
                     </p>
@@ -520,11 +831,13 @@ const AdminOrderDetails = () => {
 
                 <div className="space-y-2 text-sm leading-6 text-slate-300">
                   <p>{shipping.addressLine || "Address unavailable"}</p>
+
                   <p>
                     {[shipping.city, shipping.state]
                       .filter(Boolean)
                       .join(", ") || "City and state unavailable"}
                   </p>
+
                   <p>PIN: {shipping.pincode || "Not available"}</p>
                   <p>Phone: {shipping.phone || "Not available"}</p>
                 </div>
@@ -546,6 +859,7 @@ const AdminOrderDetails = () => {
               {items.map((item, index) => {
                 const quantity = Number(item.quantity || 0);
                 const price = Number(item.price || 0);
+
                 const itemTotal =
                   item.itemTotal != null
                     ? Number(item.itemTotal)
@@ -572,12 +886,15 @@ const AdminOrderDetails = () => {
                       <p className="text-xs font-semibold uppercase tracking-wider text-[#ff7b88]">
                         Product {String(index + 1).padStart(2, "0")}
                       </p>
+
                       <h3 className="mt-1 break-words font-semibold text-white">
                         {item.productName || "Product"}
                       </h3>
+
                       <p className="mt-2 text-sm text-slate-400">
                         Unit price: ₹{formatCurrency(price)}
                       </p>
+
                       <p className="mt-1 text-sm text-slate-400">
                         Quantity: {quantity}
                       </p>
@@ -585,6 +902,7 @@ const AdminOrderDetails = () => {
 
                     <div className="border-t border-slate-700 pt-3 sm:border-0 sm:pt-0 sm:text-right">
                       <p className="text-xs text-slate-500">Line total</p>
+
                       <p className="mt-1 text-lg font-bold text-white">
                         ₹{formatCurrency(itemTotal)}
                       </p>
@@ -613,16 +931,19 @@ const AdminOrderDetails = () => {
               <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-700/60 bg-[#151d29] p-4">
                 <div>
                   <p className="text-xs text-slate-400">Payment method</p>
+
                   <p className="mt-1 font-semibold text-white">
                     {order.paymentMethod || "Not available"}
                   </p>
                 </div>
+
                 <CreditCard className="text-blue-400" size={22} />
               </div>
 
               <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-700/60 bg-[#151d29] p-4">
                 <div>
                   <p className="text-xs text-slate-400">Payment status</p>
+
                   <p className="mt-2">
                     <span
                       className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
@@ -634,14 +955,14 @@ const AdminOrderDetails = () => {
                     </span>
                   </p>
                 </div>
+
                 <ShieldCheck className="text-emerald-400" size={22} />
               </div>
 
               <div className="flex items-center gap-3 rounded-xl bg-blue-500/5 p-4 text-sm text-slate-400">
                 <Clock size={18} className="shrink-0 text-blue-400" />
-                <p>
-                  Order placed on {formatDate(order.createdAt)}.
-                </p>
+
+                <p>Order placed on {formatDate(order.createdAt)}.</p>
               </div>
             </div>
           </Card>
@@ -652,10 +973,12 @@ const AdminOrderDetails = () => {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
                   <Receipt size={21} className="text-white" />
                 </div>
+
                 <div>
                   <h2 className="text-lg font-bold text-white">
                     Order summary
                   </h2>
+
                   <p className="mt-1 text-xs text-white/70">
                     Price breakdown in INR
                   </p>
@@ -666,6 +989,7 @@ const AdminOrderDetails = () => {
             <div className="space-y-4 p-5 sm:p-6">
               <div className="flex justify-between gap-4 text-sm">
                 <span className="text-slate-400">Subtotal</span>
+
                 <span className="font-medium text-white">
                   ₹{formatCurrency(subtotal)}
                 </span>
@@ -673,6 +997,7 @@ const AdminOrderDetails = () => {
 
               <div className="flex justify-between gap-4 text-sm">
                 <span className="text-slate-400">Discount</span>
+
                 <span className="font-medium text-emerald-400">
                   − ₹{formatCurrency(discount)}
                 </span>
@@ -680,6 +1005,7 @@ const AdminOrderDetails = () => {
 
               <div className="flex justify-between gap-4 text-sm">
                 <span className="text-slate-400">Delivery charge</span>
+
                 <span className="font-medium text-white">
                   ₹{formatCurrency(deliveryCharge)}
                 </span>
@@ -689,10 +1015,12 @@ const AdminOrderDetails = () => {
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="font-semibold text-white">Total amount</p>
+
                     <p className="mt-1 text-xs text-slate-500">
                       Including delivery and discounts
                     </p>
                   </div>
+
                   <p className="text-2xl font-bold text-[#ff7b88]">
                     ₹{formatCurrency(total)}
                   </p>
@@ -723,6 +1051,14 @@ const AdminOrderDetails = () => {
           </button>
         </div>
       </div>
+
+      {/* CUSTOM MODAL */}
+      <CustomModal
+        modal={modal}
+        onClose={closeModal}
+        onConfirm={handleModalAction}
+        busy={updatingStatus}
+      />
     </div>
   );
 };

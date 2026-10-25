@@ -1,7 +1,10 @@
+
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import session from "express-session";
+import path from "path";
+import { fileURLToPath } from "url";
 
 import connectDB from "./config/db.js";
 
@@ -31,8 +34,13 @@ import adminWalletRoutes from "./routes/adminWalletRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import adminReviewRoutes from "./routes/adminReviewRoutes.js";
 
+// ================= APP CONFIGURATION =================
 
 const app = express();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // ================= CORS =================
 
 const allowedOrigins = [
@@ -51,7 +59,10 @@ app.use(
 
 app.use(express.json());
 
-app.use("/uploads", express.static("uploads"));
+// Serve uploaded images and files from backend/uploads
+const uploadsPath = path.join(__dirname, "uploads");
+
+app.use("/uploads", express.static(uploadsPath));
 
 // ================= SESSION =================
 
@@ -60,11 +71,10 @@ app.use(
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-
     cookie: {
       httpOnly: true,
-      secure: false,
-      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000,
     },
   })
@@ -76,68 +86,36 @@ connectDB();
 
 // ================= USER ROUTES =================
 
-// User authentication
 app.use("/api/auth", authRoutes);
-
-// User profile
 app.use("/api/user", userRoutes);
-
-// OTP
 app.use("/api/otp", otpRoutes);
-
-// Address
 app.use("/api/address", addressRoutes);
 
-// Products
 app.use("/api/products", productRoutes);
-
-// Cart
 app.use("/api/cart", cartRoutes);
-
-// Categories
 app.use("/api/categories", categoryRoutes);
-
-// Wishlist
 app.use("/api/wishlist", wishlistRoutes);
-
-// User orders
 app.use("/api/orders", orderRoutes);
-
 app.use("/api/reports", reportRoutes);
 
-// Payment
 app.use("/api/payment", paymentRoutes);
-
 app.use("/api/wallet", walletRoutes);
-
 app.use("/api/coupon", couponRoutes);
-
 app.use("/api/referrals", referralRoutes);
-
-
 
 // ================= ADMIN ROUTES =================
 
-// Admin authentication
 app.use("/api/admin", adminAuthRoutes);
-
-// Admin user management
 app.use("/api/admin", adminUserRoutes);
-
-// Admin order management
 app.use("/api/admin/orders", adminOrderRoutes);
-
 app.use("/api/admin/inventory", adminInventoryRoutes);
 
 app.use("/api/offers", offerRoutes);
-
 app.use("/api/admin/dashboard", adminDashboardRoutes);
-
 app.use("/api/admin/wallets", adminWalletRoutes);
-
 app.use("/api/reviews", reviewRoutes);
-
 app.use("/api/admin/reviews", adminReviewRoutes);
+
 // ================= TEST ROUTES =================
 
 app.get("/api/users", (req, res) => {
@@ -163,8 +141,10 @@ app.get("/", (req, res) => {
 });
 
 // ================= START SERVER =================
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`LAPZONE backend running on port ${PORT}`);
+  console.log(`Uploads directory: ${uploadsPath}`);
 });

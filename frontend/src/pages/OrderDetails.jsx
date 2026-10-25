@@ -3,16 +3,15 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../api/axios";
 
-const BACKEND_URL = "https://lapzone-backend-psqn.onrender.com";
+const BACKEND_URL =
+  import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
 function getImageUrl(image) {
   if (!image || typeof image !== "string") return "";
 
   const cleanImage = image.trim();
-
   if (!cleanImage) return "";
 
-  // Already a complete URL
   if (
     cleanImage.startsWith("http://") ||
     cleanImage.startsWith("https://") ||
@@ -21,13 +20,11 @@ function getImageUrl(image) {
     return cleanImage;
   }
 
-  // Remove leading slash before creating the URL
   return `${BACKEND_URL}/${cleanImage.replace(/^\/+/, "")}`;
 }
 
 function ProductImage({ image, name }) {
   const [imageFailed, setImageFailed] = useState(false);
-
   const imageUrl = getImageUrl(image);
 
   useEffect(() => {
@@ -37,9 +34,7 @@ function ProductImage({ image, name }) {
   if (!imageUrl || imageFailed) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center bg-[#171d26] text-gray-400">
-        <span className="text-5xl" role="img" aria-label="Laptop">
-          💻
-        </span>
+        <span className="text-5xl" role="img" aria-label="Laptop">💻</span>
         <span className="mt-2 text-xs">Image unavailable</span>
       </div>
     );
@@ -74,13 +69,18 @@ function OrderDetails() {
     action: null,
   });
 
+  const [reasonModal, setReasonModal] = useState({
+    show: false,
+    type: "order",
+    productId: null,
+  });
+
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [returnReason, setReturnReason] = useState("");
+  const [submittingReason, setSubmittingReason] = useState(false);
+
   const showAlert = (message, type = "error", action = null) => {
-    setAlertModal({
-      show: true,
-      message,
-      type,
-      action,
-    });
+    setAlertModal({ show: true, message, type, action });
   };
 
   const closeAlert = () => {
@@ -93,9 +93,19 @@ function OrderDetails() {
       action: null,
     });
 
-    if (action === "orders") {
-      navigate("/orders");
-    }
+    if (action === "orders") navigate("/orders");
+  };
+
+  const closeReasonModal = () => {
+    if (submittingReason) return;
+
+    setReasonModal({
+      show: false,
+      type: "order",
+      productId: null,
+    });
+    setCancellationReason("");
+    setReturnReason("");
   };
 
   // FETCH ORDER
@@ -111,9 +121,7 @@ function OrderDetails() {
       }
 
       const response = await api.get(`/orders/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       setOrder(response.data.order || null);
@@ -130,8 +138,7 @@ function OrderDetails() {
       }
 
       showAlert(
-        error.response?.data?.message ||
-          "Failed to load order details.",
+        error.response?.data?.message || "Failed to load order details.",
         "error",
         "orders"
       );
@@ -149,7 +156,6 @@ function OrderDetails() {
     if (!date) return "—";
 
     const parsedDate = new Date(date);
-
     if (Number.isNaN(parsedDate.getTime())) return "—";
 
     return parsedDate.toLocaleDateString("en-IN", {
@@ -159,109 +165,129 @@ function OrderDetails() {
     });
   };
 
-  // CANCEL WHOLE ORDER
-  const handleCancelOrder = async () => {
-    if (!window.confirm("Are you sure you want to cancel this order?")) {
+  // OPEN CANCELLATION MODAL
+  const handleCancelOrder = () => {
+    setCancellationReason("");
+    setReasonModal({
+      show: true,
+      type: "order",
+      productId: null,
+    });
+  };
+
+  const handleCancelOrderItem = (productId) => {
+    if (!productId) {
+      showAlert("Product details are unavailable.");
       return;
     }
 
-    const reason =
-      window.prompt("Enter cancellation reason (optional):") || "";
+    setCancellationReason("");
+    setReasonModal({
+      show: true,
+      type: "product",
+      productId,
+    });
+  };
+
+  // SUBMIT CANCELLATION
+  const submitCancellation = async () => {
+    if (!order?._id || submittingReason) return;
 
     try {
+      setSubmittingReason(true);
+
       const token = localStorage.getItem("token");
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+
+      const isWholeOrder = reasonModal.type === "order";
+
+      const url = isWholeOrder
+        ? `/orders/${order._id}/cancel`
+        : `/orders/${order._id}/items/${reasonModal.productId}/cancel`;
 
       const response = await api.patch(
-        `/orders/${order._id}/cancel`,
-        { cancellationReason: reason },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        url,
+        { cancellationReason: cancellationReason.trim() },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
+
+      setReasonModal({
+        show: false,
+        type: "order",
+        productId: null,
+      });
+      setCancellationReason("");
 
       await fetchOrder();
 
       showAlert(
-        response.data?.message || "Order cancelled successfully.",
+        response.data?.message || "Cancellation completed successfully.",
         "success"
       );
     } catch (error) {
       console.error(
-        "Cancel order error:",
+        "Cancellation error:",
         error.response?.data || error.message
       );
 
+      setReasonModal({
+        show: false,
+        type: "order",
+        productId: null,
+      });
+
       showAlert(
-        error.response?.data?.message || "Failed to cancel order."
+        error.response?.data?.message ||
+          "Failed to cancel. Please try again."
       );
+    } finally {
+      setSubmittingReason(false);
     }
   };
 
-  // CANCEL SPECIFIC PRODUCT
-  const handleCancelOrderItem = async (productId) => {
-    if (!window.confirm("Are you sure you want to cancel this product?")) {
-      return;
-    }
-
-    const reason =
-      window.prompt("Enter cancellation reason (optional):") || "";
-
-    try {
-      const token = localStorage.getItem("token");
-
-      const response = await api.patch(
-        `/orders/${order._id}/items/${productId}/cancel`,
-        { reason },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      await fetchOrder();
-
-      showAlert(
-        response.data?.message || "Product cancelled successfully.",
-        "success"
-      );
-    } catch (error) {
-      console.error(
-        "Cancel product error:",
-        error.response?.data || error.message
-      );
-
-      showAlert(
-        error.response?.data?.message || "Failed to cancel product."
-      );
-    }
+  // OPEN RETURN MODAL
+  const handleReturnOrder = () => {
+    setReturnReason("");
+    setReasonModal({
+      show: true,
+      type: "return",
+      productId: null,
+    });
   };
 
-  // RETURN ORDER
-  const handleReturnOrder = async () => {
-    const reason = window.prompt(
-      "Please enter the reason for returning this order:"
-    );
-
-    if (!reason || !reason.trim()) {
-      showAlert("Return reason is required.");
+  // SUBMIT RETURN REQUEST
+  const submitReturnRequest = async () => {
+    if (!returnReason.trim()) {
+      showAlert("Please enter a reason for returning this order.");
       return;
     }
 
+    if (submittingReason) return;
+
     try {
+      setSubmittingReason(true);
+
       const token = localStorage.getItem("token");
+      if (!token) {
+        navigate("/login");
+        return;
+      }
 
       const response = await api.patch(
         `/orders/${order._id}/return`,
-        { returnReason: reason.trim() },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { returnReason: returnReason.trim() },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
+
+      setReasonModal({
+        show: false,
+        type: "order",
+        productId: null,
+      });
+      setReturnReason("");
 
       await fetchOrder();
 
@@ -276,10 +302,18 @@ function OrderDetails() {
         error.response?.data || error.message
       );
 
+      setReasonModal({
+        show: false,
+        type: "order",
+        productId: null,
+      });
+
       showAlert(
         error.response?.data?.message ||
           "Failed to submit return request."
       );
+    } finally {
+      setSubmittingReason(false);
     }
   };
 
@@ -296,9 +330,7 @@ function OrderDetails() {
       }
 
       const response = await api.get(`/orders/${id}/invoice`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
         responseType: "blob",
       });
 
@@ -341,7 +373,6 @@ function OrderDetails() {
     navigate(`/products/${productId}`);
   };
 
-  // LOADING
   if (loading) {
     return (
       <div className="min-h-screen bg-[#151a23] flex items-center justify-center">
@@ -362,7 +393,6 @@ function OrderDetails() {
     );
   }
 
-  // STATUS
   const statusSteps = [
     "Pending",
     "Shipped",
@@ -373,17 +403,15 @@ function OrderDetails() {
   const statusIndex = statusSteps.indexOf(order.orderStatus);
   const currentStatusIndex = statusIndex < 0 ? 0 : statusIndex;
   const isCancelled = order.orderStatus === "Cancelled";
+  const items = Array.isArray(order.items) ? order.items : [];
 
   const getStatusLabel = (status) => {
     if (status === "Pending") return "PLACED";
     if (status === "Shipped") return "SHIPPED";
     if (status === "Out for Delivery") return "IN TRANSIT";
     if (status === "Delivered") return "DELIVERED";
-
     return status.toUpperCase();
   };
-
-  const items = Array.isArray(order.items) ? order.items : [];
 
   return (
     <div className="min-h-screen bg-[#151a23] text-white">
@@ -523,6 +551,7 @@ function OrderDetails() {
                   <div className="w-10 h-10 mx-auto rounded-full bg-red-500/20 flex items-center justify-center text-red-400">
                     ✕
                   </div>
+
                   <p className="text-xs font-bold text-red-400 mt-3">
                     ORDER CANCELLED
                   </p>
@@ -603,7 +632,6 @@ function OrderDetails() {
 
             {/* PRODUCTS AND FINANCIAL SUMMARY */}
             <div className="grid grid-cols-1 xl:grid-cols-[1fr_230px] gap-5">
-              {/* PRODUCTS */}
               <section className="space-y-4">
                 {items.map((item, index) => (
                   <div
@@ -611,7 +639,6 @@ function OrderDetails() {
                     className="bg-[#202733] border border-[#303a49] rounded-lg p-4"
                   >
                     <div className="flex flex-col sm:flex-row gap-4">
-                      {/* PRODUCT IMAGE */}
                       <div className="w-full sm:w-36 h-32 bg-[#151a23] rounded-md overflow-hidden flex items-center justify-center flex-shrink-0">
                         <ProductImage
                           image={item.productImage || item.image}
@@ -688,7 +715,9 @@ function OrderDetails() {
                             <button
                               type="button"
                               onClick={() =>
-                                handleBuyAgain(item.productId?._id || item.productId)
+                                handleBuyAgain(
+                                  item.productId?._id || item.productId
+                                )
                               }
                               className="px-4 py-2 bg-[#b51a2b] text-white rounded-md text-[9px] font-semibold hover:bg-[#c9273c]"
                             >
@@ -717,6 +746,7 @@ function OrderDetails() {
                             <p className="text-[8px] text-red-400 font-semibold">
                               PRODUCT CANCELLED
                             </p>
+
                             {item.cancellationReason && (
                               <p className="text-[8px] text-gray-400 mt-1">
                                 Reason: {item.cancellationReason}
@@ -906,7 +936,139 @@ function OrderDetails() {
         </div>
       </main>
 
-      {/* Shared footer should come from UserLayout.jsx */}
+      {/* CUSTOM REASON MODAL */}
+      {reasonModal.show && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4"
+          onClick={(event) => {
+            if (
+              event.target === event.currentTarget &&
+              !submittingReason
+            ) {
+              closeReasonModal();
+            }
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-[#414d5e] bg-[#202936] p-6 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reason-modal-title"
+          >
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold tracking-[0.2em] text-[#ff5368]">
+                  LAPZONE
+                </p>
+                <h2
+                  id="reason-modal-title"
+                  className="mt-2 text-xl font-bold text-white"
+                >
+                  {reasonModal.type === "return"
+                    ? "Return Order"
+                    : reasonModal.type === "product"
+                    ? "Cancel Product"
+                    : "Cancel Order"}
+                </h2>
+                <p className="mt-2 text-sm text-gray-400">
+                  {reasonModal.type === "return"
+                    ? "Please tell us why you want to return this order."
+                    : "Please tell us why you want to cancel."}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeReasonModal}
+                disabled={submittingReason}
+                className="text-2xl leading-none text-gray-400 hover:text-white disabled:opacity-50"
+                aria-label="Close modal"
+              >
+                ×
+              </button>
+            </div>
+
+            <label
+              htmlFor="order-action-reason"
+              className="mb-2 block text-sm font-medium text-gray-200"
+            >
+              {reasonModal.type === "return"
+                ? "Return reason"
+                : "Cancellation reason"}
+              {reasonModal.type !== "return" && (
+                <span className="ml-1 text-gray-500">(optional)</span>
+              )}
+            </label>
+
+            <textarea
+              id="order-action-reason"
+              value={
+                reasonModal.type === "return"
+                  ? returnReason
+                  : cancellationReason
+              }
+              onChange={(event) => {
+                if (reasonModal.type === "return") {
+                  setReturnReason(event.target.value);
+                } else {
+                  setCancellationReason(event.target.value);
+                }
+              }}
+              placeholder={
+                reasonModal.type === "return"
+                  ? "Enter your return reason..."
+                  : "Enter your cancellation reason..."
+              }
+              rows={4}
+              maxLength={500}
+              disabled={submittingReason}
+              className="w-full resize-none rounded-lg border border-[#414d5e] bg-[#171d26] p-3 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#b51a2b] disabled:opacity-50"
+            />
+
+            <p className="mt-1 text-right text-xs text-gray-500">
+              {(reasonModal.type === "return"
+                ? returnReason
+                : cancellationReason
+              ).length}
+              /500
+            </p>
+
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={closeReasonModal}
+                disabled={submittingReason}
+                className="flex-1 rounded-lg border border-[#414d5e] py-3 text-sm font-semibold text-gray-300 hover:bg-white/5 disabled:opacity-50"
+              >
+                Go Back
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  reasonModal.type === "return"
+                    ? submitReturnRequest
+                    : submitCancellation
+                }
+                disabled={
+                  submittingReason ||
+                  (reasonModal.type === "return" &&
+                    !returnReason.trim())
+                }
+                className="flex-1 rounded-lg bg-[#b51a2b] py-3 text-sm font-semibold text-white hover:bg-[#c9273c] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {submittingReason
+                  ? "PLEASE WAIT..."
+                  : reasonModal.type === "return"
+                  ? "Submit Return"
+                  : reasonModal.type === "product"
+                  ? "Cancel Product"
+                  : "Cancel Order"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {alertModal.show && (
         <AlertModal alertModal={alertModal} onClose={closeAlert} />

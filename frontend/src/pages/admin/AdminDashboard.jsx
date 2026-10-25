@@ -3,8 +3,12 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 
-const API_ORIGIN = (api.defaults?.baseURL || "https://lapzone-backend-psqn.onrender.com/api")
-  .replace(/\/api\/?$/, "");
+const API_ORIGIN = (
+  import.meta.env.VITE_BACKEND_URL ||
+  api.defaults?.baseURL ||
+  "http://localhost:5000/api"
+).replace(/\/api\/?$/, "");
+
 
 const formatCurrency = (value) =>
   `₹${Number(value || 0).toLocaleString("en-IN", {

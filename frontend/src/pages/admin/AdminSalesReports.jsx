@@ -1,5 +1,18 @@
-import { useEffect, useState } from "react";
+
+import { useEffect, useState, useCallback } from "react";
 import api from "../../api/axios";
+import {
+  AlertCircle,
+  CheckCircle2,
+  X,
+  RefreshCw,
+  FileSpreadsheet,
+  FileText,
+  CalendarDays,
+  TrendingUp,
+  ShoppingBag,
+  Wallet,
+} from "lucide-react";
 
 const AdminSalesReports = () => {
   const [period, setPeriod] = useState("daily");
@@ -8,415 +21,688 @@ const AdminSalesReports = () => {
 
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState("");
 
-  const fetchReport = async () => {
-    try {
-      setLoading(true);
+  const [modal, setModal] = useState({
+    open: false,
+    title: "",
+    message: "",
+    type: "error",
+  });
 
-      let url = `/reports/sales?period=${period}`;
+  // =========================================
+  // CUSTOM NOTIFICATION MODAL
+  // =========================================
 
-      if (period === "custom") {
-        if (!startDate || !endDate) {
-          alert("Please select start date and end date");
-          return;
-        }
+  const showModal = (title, message, type = "error") => {
+    setModal({
+      open: true,
+      title,
+      message,
+      type,
+    });
+  };
 
-        url += `&startDate=${startDate}&endDate=${endDate}`;
+  const closeModal = () => {
+    setModal((previous) => ({
+      ...previous,
+      open: false,
+    }));
+  };
+
+  const NotificationModal = () => {
+    if (!modal.open) return null;
+
+    const isSuccess = modal.type === "success";
+
+    return (
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) {
+            closeModal();
+          }
+        }}
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sales-modal-title"
+          className="w-full max-w-md overflow-hidden rounded-2xl border border-[#414d5e] bg-[#202936] shadow-2xl"
+        >
+          <div className="flex items-start justify-between border-b border-[#414d5e] px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div
+                className={`flex h-11 w-11 items-center justify-center rounded-xl ${
+                  isSuccess
+                    ? "bg-green-400/10 text-green-400"
+                    : "bg-red-400/10 text-red-400"
+                }`}
+              >
+                {isSuccess ? (
+                  <CheckCircle2 size={23} />
+                ) : (
+                  <AlertCircle size={23} />
+                )}
+              </div>
+
+              <div>
+                <h2
+                  id="sales-modal-title"
+                  className="text-base font-semibold text-white"
+                >
+                  {modal.title}
+                </h2>
+
+                <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-gray-500">
+                  LAPZONE ADMIN
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={closeModal}
+              aria-label="Close notification"
+              className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="px-6 py-5">
+            <p className="text-sm leading-6 text-gray-300">
+              {modal.message}
+            </p>
+
+            <button
+              type="button"
+              onClick={closeModal}
+              className={`mt-6 w-full rounded-lg px-4 py-3 text-xs font-semibold tracking-wide text-white transition ${
+                isSuccess
+                  ? "bg-green-600 hover:bg-green-500"
+                  : "bg-[#b51a2b] hover:bg-[#d92d3d]"
+              }`}
+            >
+              OK, GOT IT
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // =========================================
+  // VALIDATE CUSTOM DATES
+  // =========================================
+
+  const validateCustomDates = () => {
+    if (period !== "custom") {
+      return true;
+    }
+
+    if (!startDate || !endDate) {
+      showModal(
+        "Dates Required",
+        "Please select both a start date and an end date.",
+        "error"
+      );
+
+      return false;
+    }
+
+    if (startDate > endDate) {
+      showModal(
+        "Invalid Date Range",
+        "The start date cannot be later than the end date.",
+        "error"
+      );
+
+      return false;
+    }
+
+    return true;
+  };
+
+  // =========================================
+  // BUILD REPORT URL
+  // =========================================
+
+  const buildReportUrl = (endpoint) => {
+    const params = new URLSearchParams();
+    params.set("period", period);
+
+    if (period === "custom") {
+      params.set("startDate", startDate);
+      params.set("endDate", endDate);
+    }
+
+    return `${endpoint}?${params.toString()}`;
+  };
+
+  // =========================================
+  // FETCH SALES REPORT
+  // =========================================
+
+  const fetchReport = useCallback(
+    async (showErrors = true) => {
+      if (!validateCustomDates()) {
+        return;
       }
 
-      const response = await api.get(url);
+      try {
+        setLoading(true);
 
-      setReport(response.data.report);
+        const url = buildReportUrl("/reports/sales");
+        const response = await api.get(url);
+
+        setReport(response.data.report || null);
+      } catch (error) {
+        console.error(
+          "Sales report error:",
+          error.response?.data || error.message
+        );
+
+        if (showErrors) {
+          showModal(
+            "Unable to Load Report",
+            error.response?.data?.message ||
+              "Failed to load the sales report. Please try again.",
+            "error"
+          );
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [period, startDate, endDate]
+  );
+
+  // =========================================
+  // DOWNLOAD REPORT FILE
+  // =========================================
+
+  const downloadReport = async (fileType) => {
+    if (!validateCustomDates()) {
+      return;
+    }
+
+    const isExcel = fileType === "excel";
+    const endpoint = isExcel
+      ? "/reports/sales/excel"
+      : "/reports/sales/pdf";
+
+    try {
+      setDownloading(fileType);
+
+      const url = buildReportUrl(endpoint);
+
+      const response = await api.get(url, {
+        responseType: "blob",
+      });
+
+      const mimeType = isExcel
+        ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        : "application/pdf";
+
+      const blob = new Blob([response.data], {
+        type: mimeType,
+      });
+
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = downloadUrl;
+      link.download = `lapzone-sales-report-${period}.${
+        isExcel ? "xlsx" : "pdf"
+      }`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      // Give the browser time to begin the download.
+      window.setTimeout(() => {
+        window.URL.revokeObjectURL(downloadUrl);
+      }, 1000);
+
+      showModal(
+        "Download Started",
+        `Your sales report ${
+          isExcel ? "Excel" : "PDF"
+        } file has been prepared for download.`,
+        "success"
+      );
     } catch (error) {
-      console.error("Sales report error:", error);
+      console.error(
+        `${fileType.toUpperCase()} download error:`,
+        error.response?.data || error.message
+      );
 
-      alert(
-        error.response?.data?.message ||
-          "Failed to load sales report"
+      let message = `Failed to download the ${
+        isExcel ? "Excel" : "PDF"
+      } report. Please try again.`;
+
+      // Blob responses may contain an error message as JSON.
+      if (error.response?.data instanceof Blob) {
+        try {
+          const errorText = await error.response.data.text();
+          const errorData = JSON.parse(errorText);
+
+          if (errorData.message) {
+            message = errorData.message;
+          }
+        } catch {
+          // Keep the default error message if the response
+          // is not a JSON error payload.
+        }
+      } else if (error.response?.data?.message) {
+        message = error.response.data.message;
+      }
+
+      showModal(
+        "Download Failed",
+        message,
+        "error"
       );
     } finally {
-      setLoading(false);
+      setDownloading("");
     }
   };
 
-  const downloadExcel = async () => {
-  try {
-    let url = `/reports/sales/excel?period=${period}`;
+  // =========================================
+  // LOAD REPORT WHEN PERIOD CHANGES
+  // =========================================
 
-    if (period === "custom") {
-      if (!startDate || !endDate) {
-        alert("Please select start date and end date");
-        return;
-      }
-
-      url += `&startDate=${startDate}&endDate=${endDate}`;
-    }
-
-    const response = await api.get(url, {
-      responseType: "blob",
-    });
-
-    const blob = new Blob([response.data], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
-
-    const downloadUrl = window.URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = downloadUrl;
-    link.download = `lapzone-sales-report-${period}.xlsx`;
-
-    document.body.appendChild(link);
-    link.click();
-
-    link.remove();
-
-    window.URL.revokeObjectURL(downloadUrl);
-
-  } catch (error) {
-    console.error("Excel download error:", error);
-
-    alert(
-      error.response?.data?.message ||
-        "Failed to download Excel report"
-    );
-  }
-};
-
-const downloadPDF = async () => {
-  try {
-    let url = `/reports/sales/pdf?period=${period}`;
-
-    if (period === "custom") {
-      if (!startDate || !endDate) {
-        alert("Please select start date and end date");
-        return;
-      }
-
-      url += `&startDate=${startDate}&endDate=${endDate}`;
-    }
-
-    const response = await api.get(url, {
-      responseType: "blob",
-    });
-
-    const blob = new Blob([response.data], {
-      type: "application/pdf",
-    });
-
-    const downloadUrl = window.URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-
-    link.href = downloadUrl;
-
-    link.download = `lapzone-sales-report-${period}.pdf`;
-
-    document.body.appendChild(link);
-
-    link.click();
-
-    link.remove();
-
-    window.URL.revokeObjectURL(downloadUrl);
-
-  } catch (error) {
-    console.error("PDF download error:", error);
-
-    alert(
-      error.response?.data?.message ||
-        "Failed to download PDF report"
-    );
-  }
-};
   useEffect(() => {
+    if (period === "custom") {
+      return;
+    }
+
+    fetchReport(false);
+  }, [period, fetchReport]);
+
+  // =========================================
+  // GENERATE REPORT BUTTON
+  // =========================================
+
+  const handleGenerateReport = () => {
     fetchReport();
-  }, [period]);
+  };
+
+  // =========================================
+  // FORMAT CURRENCY
+  // =========================================
+
+  const formatCurrency = (amount) =>
+    Number(amount || 0).toLocaleString("en-IN", {
+      maximumFractionDigits: 2,
+    });
+
+  // =========================================
+  // PAGE
+  // =========================================
 
   return (
-    <div className="min-h-screen bg-[#202936] text-white p-6">
+    <div className="min-h-screen bg-[#202936] p-6 text-white">
+      <NotificationModal />
 
       {/* HEADER */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">
-          Sales Reports
-        </h1>
+      <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div>
+          <div className="mb-2 text-[10px] uppercase tracking-wider text-gray-500">
+            Dashboard
+            <span className="mx-2">/</span>
+            <span className="text-[#e33445]">Sales Reports</span>
+          </div>
 
-        <p className="text-gray-400 text-sm mt-1">
-          View your store sales and order performance
-        </p>
+          <h1 className="text-2xl font-bold">
+            Sales Reports
+          </h1>
+
+          <p className="mt-1 text-sm text-gray-400">
+            View your store sales and order performance.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => fetchReport()}
+          disabled={loading || downloading !== ""}
+          className="flex items-center justify-center gap-2 rounded-lg border border-[#414d5e] bg-[#293444] px-4 py-3 text-xs font-medium text-gray-300 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <RefreshCw
+            size={14}
+            className={loading ? "animate-spin" : ""}
+          />
+          REFRESH REPORT
+        </button>
       </div>
 
       {/* FILTER */}
-      <div className="bg-[#293444] border border-[#414d5e] rounded-lg p-5 mb-6">
+      <div className="mb-6 rounded-lg border border-[#414d5e] bg-[#293444] p-5">
+        <div className="mb-4 flex items-center gap-2">
+          <CalendarDays size={17} className="text-[#ffb2b8]" />
 
-        <h2 className="font-semibold mb-4">
-          Report Period
-        </h2>
-
-        <div className="flex flex-wrap gap-3">
-
-          <button
-            onClick={() => setPeriod("daily")}
-            className={`px-4 py-2 rounded-md text-sm ${
-              period === "daily"
-                ? "bg-[#b51a2b] text-white"
-                : "bg-[#202936] text-gray-300"
-            }`}
-          >
-            Daily
-          </button>
-
-          <button
-            onClick={() => setPeriod("weekly")}
-            className={`px-4 py-2 rounded-md text-sm ${
-              period === "weekly"
-                ? "bg-[#b51a2b] text-white"
-                : "bg-[#202936] text-gray-300"
-            }`}
-          >
-            Weekly
-          </button>
-
-          <button
-            onClick={() => setPeriod("yearly")}
-            className={`px-4 py-2 rounded-md text-sm ${
-              period === "yearly"
-                ? "bg-[#b51a2b] text-white"
-                : "bg-[#202936] text-gray-300"
-            }`}
-          >
-            Yearly
-          </button>
-
-          <button
-            onClick={() => setPeriod("custom")}
-            className={`px-4 py-2 rounded-md text-sm ${
-              period === "custom"
-                ? "bg-[#b51a2b] text-white"
-                : "bg-[#202936] text-gray-300"
-            }`}
-          >
-            Custom
-          </button>
-
-          <button
-  onClick={downloadExcel}
-  className="px-4 py-2 rounded-md text-sm bg-green-700 hover:bg-green-800 text-white"
->
-  Download Excel
-</button>
-<button
-  onClick={downloadPDF}
-  className="px-4 py-2 rounded-md text-sm bg-blue-700 hover:bg-blue-800 text-white"
->
-  Download PDF
-</button>
-
+          <h2 className="font-semibold">
+            Report Period
+          </h2>
         </div>
 
-        {/* CUSTOM DATE */}
-        {period === "custom" && (
-          <div className="flex flex-wrap gap-4 mt-5">
+        <div className="flex flex-wrap gap-3">
+          {[
+            { value: "daily", label: "Daily" },
+            { value: "weekly", label: "Weekly" },
+            { value: "yearly", label: "Yearly" },
+            { value: "custom", label: "Custom" },
+          ].map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              onClick={() => setPeriod(item.value)}
+              className={`rounded-md px-4 py-2 text-sm transition ${
+                period === item.value
+                  ? "bg-[#b51a2b] text-white"
+                  : "bg-[#202936] text-gray-300 hover:bg-[#354158]"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
 
+          <div className="hidden flex-1 sm:block" />
+
+          {/* EXCEL DOWNLOAD */}
+          <button
+            type="button"
+            onClick={() => downloadReport("excel")}
+            disabled={downloading !== "" || loading}
+            className="flex items-center justify-center gap-2 rounded-md bg-green-700 px-4 py-2 text-sm text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <FileSpreadsheet size={16} />
+            {downloading === "excel"
+              ? "Preparing Excel..."
+              : "Download Excel"}
+          </button>
+
+          {/* PDF DOWNLOAD */}
+          <button
+            type="button"
+            onClick={() => downloadReport("pdf")}
+            disabled={downloading !== "" || loading}
+            className="flex items-center justify-center gap-2 rounded-md bg-blue-700 px-4 py-2 text-sm text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <FileText size={16} />
+            {downloading === "pdf"
+              ? "Preparing PDF..."
+              : "Download PDF"}
+          </button>
+        </div>
+
+        {/* CUSTOM DATE FILTER */}
+        {period === "custom" && (
+          <div className="mt-5 flex flex-wrap items-end gap-4 border-t border-[#414d5e] pt-5">
             <div>
-              <label className="block text-xs text-gray-400 mb-1">
+              <label
+                htmlFor="sales-start-date"
+                className="mb-1 block text-xs text-gray-400"
+              >
                 Start Date
               </label>
 
               <input
+                id="sales-start-date"
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="bg-[#202936] border border-[#414d5e] rounded-md px-3 py-2 text-sm"
+                max={endDate || undefined}
+                onChange={(event) =>
+                  setStartDate(event.target.value)
+                }
+                className="rounded-md border border-[#414d5e] bg-[#202936] px-3 py-2 text-sm text-white outline-none focus:border-[#b51a2b]"
               />
             </div>
 
             <div>
-              <label className="block text-xs text-gray-400 mb-1">
+              <label
+                htmlFor="sales-end-date"
+                className="mb-1 block text-xs text-gray-400"
+              >
                 End Date
               </label>
 
               <input
+                id="sales-end-date"
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="bg-[#202936] border border-[#414d5e] rounded-md px-3 py-2 text-sm"
+                min={startDate || undefined}
+                onChange={(event) =>
+                  setEndDate(event.target.value)
+                }
+                className="rounded-md border border-[#414d5e] bg-[#202936] px-3 py-2 text-sm text-white outline-none focus:border-[#b51a2b]"
               />
             </div>
 
-            <div className="flex items-end">
-              <button
-                onClick={fetchReport}
-                className="bg-[#b51a2b] px-5 py-2 rounded-md text-sm font-medium"
-              >
-                Generate Report
-              </button>
-            </div>
-
+            <button
+              type="button"
+              onClick={handleGenerateReport}
+              disabled={loading || downloading !== ""}
+              className="rounded-md bg-[#b51a2b] px-5 py-2 text-sm font-medium transition hover:bg-[#d92d3d] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? "Generating..." : "Generate Report"}
+            </button>
           </div>
         )}
       </div>
 
       {/* LOADING */}
       {loading && (
-        <p className="text-gray-400">
-          Loading report...
-        </p>
+        <div className="mb-6 flex items-center gap-3 rounded-lg border border-[#414d5e] bg-[#293444] p-5 text-sm text-gray-400">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#b51a2b] border-t-transparent" />
+          Loading sales report...
+        </div>
       )}
 
       {/* REPORT */}
       {!loading && report && (
         <>
           {/* STAT CARDS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border border-[#414d5e] bg-[#293444] p-5">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-400">
+                  Total Orders
+                </p>
 
-            <div className="bg-[#293444] border border-[#414d5e] rounded-lg p-5">
-              <p className="text-gray-400 text-sm">
-                Total Orders
-              </p>
+                <ShoppingBag
+                  size={19}
+                  className="text-[#ffb2b8]"
+                />
+              </div>
 
-              <h2 className="text-2xl font-bold mt-2">
-                {report.totalOrders}
+              <h2 className="mt-3 text-2xl font-bold">
+                {Number(report.totalOrders || 0).toLocaleString(
+                  "en-IN"
+                )}
               </h2>
+
+              <p className="mt-1 text-xs text-gray-500">
+                Orders in selected period
+              </p>
             </div>
 
-            <div className="bg-[#293444] border border-[#414d5e] rounded-lg p-5">
-              <p className="text-gray-400 text-sm">
-                Total Sales
-              </p>
+            <div className="rounded-lg border border-[#414d5e] bg-[#293444] p-5">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-400">
+                  Total Sales
+                </p>
 
-              <h2 className="text-2xl font-bold mt-2">
-                ₹{report.totalSales?.toLocaleString("en-IN")}
+                <TrendingUp
+                  size={19}
+                  className="text-green-400"
+                />
+              </div>
+
+              <h2 className="mt-3 text-2xl font-bold">
+                ₹{formatCurrency(report.totalSales)}
               </h2>
+
+              <p className="mt-1 text-xs text-gray-500">
+                Reported sales amount
+              </p>
             </div>
 
-            <div className="bg-[#293444] border border-[#414d5e] rounded-lg p-5">
-              <p className="text-gray-400 text-sm">
-                Total Discount
-              </p>
+            <div className="rounded-lg border border-[#414d5e] bg-[#293444] p-5">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-400">
+                  Total Discount
+                </p>
 
-              <h2 className="text-2xl font-bold mt-2">
-                ₹{report.totalDiscount?.toLocaleString("en-IN")}
+                <Wallet
+                  size={19}
+                  className="text-yellow-400"
+                />
+              </div>
+
+              <h2 className="mt-3 text-2xl font-bold">
+                ₹{formatCurrency(report.totalDiscount)}
               </h2>
+
+              <p className="mt-1 text-xs text-gray-500">
+                Discounts applied
+              </p>
             </div>
 
-            <div className="bg-[#293444] border border-[#414d5e] rounded-lg p-5">
-              <p className="text-gray-400 text-sm">
-                Average Order Value
-              </p>
+            <div className="rounded-lg border border-[#414d5e] bg-[#293444] p-5">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-400">
+                  Average Order Value
+                </p>
 
-              <h2 className="text-2xl font-bold mt-2">
+                <FileText
+                  size={19}
+                  className="text-blue-400"
+                />
+              </div>
+
+              <h2 className="mt-3 text-2xl font-bold">
                 ₹
-                {Math.round(
-                  report.averageOrderValue || 0
-                ).toLocaleString("en-IN")}
+                {formatCurrency(
+                  Math.round(report.averageOrderValue || 0)
+                )}
               </h2>
-            </div>
 
+              <p className="mt-1 text-xs text-gray-500">
+                Average value per order
+              </p>
+            </div>
           </div>
 
-          {/* REPORT DETAILS */}
           {/* ORDERS TABLE */}
-<div className="bg-[#293444] border border-[#414d5e] rounded-lg p-5 mt-6">
+          <div className="mt-6 overflow-hidden rounded-lg border border-[#414d5e] bg-[#293444]">
+            <div className="border-b border-[#414d5e] p-5">
+              <h2 className="font-semibold">
+                Orders in this Report
+              </h2>
 
-  <h2 className="font-semibold mb-4">
-    Orders in this Report
-  </h2>
+              <p className="mt-1 text-xs text-gray-400">
+                Order details for the selected reporting period.
+              </p>
+            </div>
 
-  {report.orders && report.orders.length > 0 ? (
-    <div className="overflow-x-auto">
+            {report.orders && report.orders.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[800px] text-sm">
+                  <thead>
+                    <tr className="border-b border-[#414d5e] text-left text-xs text-gray-400">
+                      <th className="p-4">Order ID</th>
+                      <th className="p-4">Date</th>
+                      <th className="p-4">Payment</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4">Discount</th>
+                      <th className="p-4">Amount</th>
+                    </tr>
+                  </thead>
 
-      <table className="w-full text-sm">
+                  <tbody>
+                    {report.orders.map((order) => {
+                      const date = order.createdAt
+                        ? new Date(order.createdAt)
+                        : null;
 
-        <thead>
-          <tr className="border-b border-[#414d5e] text-gray-400 text-left">
+                      const validDate =
+                        date && !Number.isNaN(date.getTime());
 
-            <th className="p-3">
-              Order ID
-            </th>
+                      return (
+                        <tr
+                          key={order._id}
+                          className="border-b border-[#414d5e] transition hover:bg-[#252f40]"
+                        >
+                          <td className="p-4 font-medium">
+                            {order.orderId || "-"}
+                          </td>
 
-            <th className="p-3">
-              Date
-            </th>
+                          <td className="p-4 text-gray-300">
+                            {validDate
+                              ? date.toLocaleDateString("en-IN")
+                              : "-"}
+                          </td>
 
-            <th className="p-3">
-              Payment
-            </th>
+                          <td className="p-4 text-gray-300">
+                            {order.paymentMethod || "-"}
+                          </td>
 
-            <th className="p-3">
-              Status
-            </th>
+                          <td className="p-4">
+                            <span className="rounded-full border border-[#414d5e] bg-[#202936] px-3 py-1 text-xs text-gray-300">
+                              {order.orderStatus || "Unknown"}
+                            </span>
+                          </td>
 
-            <th className="p-3">
-              Discount
-            </th>
+                          <td className="p-4 text-gray-300">
+                            ₹{formatCurrency(order.discount)}
+                          </td>
 
-            <th className="p-3">
-              Amount
-            </th>
+                          <td className="p-4 font-semibold text-[#ffb2b8]">
+                            ₹{formatCurrency(order.totalAmount)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-10 text-center">
+                <ShoppingBag
+                  size={28}
+                  className="mx-auto mb-3 text-gray-500"
+                />
 
-          </tr>
-        </thead>
-
-        <tbody>
-
-          {report.orders.map((order) => (
-            <tr
-              key={order._id}
-              className="border-b border-[#414d5e] hover:bg-[#252f40]"
-            >
-
-              <td className="p-3">
-                {order.orderId}
-              </td>
-
-              <td className="p-3 text-gray-300">
-                {new Date(
-                  order.createdAt
-                ).toLocaleDateString("en-IN")}
-              </td>
-
-              <td className="p-3">
-                {order.paymentMethod}
-              </td>
-
-              <td className="p-3">
-                {order.orderStatus}
-              </td>
-
-              <td className="p-3">
-                ₹
-                {(order.discount || 0).toLocaleString(
-                  "en-IN"
-                )}
-              </td>
-
-              <td className="p-3 font-semibold">
-                ₹
-                {(order.totalAmount || 0).toLocaleString(
-                  "en-IN"
-                )}
-              </td>
-
-            </tr>
-          ))}
-
-        </tbody>
-
-      </table>
-
-    </div>
-  ) : (
-    <p className="text-gray-400 text-sm">
-      No orders found for this period.
-    </p>
-  )}
-
-</div>  
+                <p className="text-sm text-gray-400">
+                  No orders found for this period.
+                </p>
+              </div>
+            )}
+          </div>
         </>
       )}
 
+      {/* NO REPORT */}
+      {!loading && !report && (
+        <div className="rounded-lg border border-[#414d5e] bg-[#293444] p-10 text-center">
+          <FileText
+            size={32}
+            className="mx-auto mb-3 text-gray-500"
+          />
+
+          <p className="text-sm text-gray-300">
+            No report data is available.
+          </p>
+
+          <p className="mt-2 text-xs text-gray-500">
+            Select a reporting period and try again.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

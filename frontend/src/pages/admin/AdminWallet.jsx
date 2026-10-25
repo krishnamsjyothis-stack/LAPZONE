@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api from "../../api/axios";
 
 function AdminWallet() {
@@ -18,6 +18,30 @@ function AdminWallet() {
   const [selectedWallet, setSelectedWallet] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
 
+  // Custom notification modal
+  const [notification, setNotification] = useState({
+    open: false,
+    title: "",
+    message: "",
+    type: "error",
+  });
+
+  const showNotification = (message, type = "error") => {
+    setNotification({
+      open: true,
+      title: type === "success" ? "Success" : "Unable to Continue",
+      message,
+      type,
+    });
+  };
+
+  const closeNotification = () => {
+    setNotification((current) => ({
+      ...current,
+      open: false,
+    }));
+  };
+
   const formatMoney = (amount = 0) =>
     new Intl.NumberFormat("en-IN", {
       style: "currency",
@@ -25,7 +49,7 @@ function AdminWallet() {
       maximumFractionDigits: 2,
     }).format(Number(amount) || 0);
 
-  const fetchWallets = async () => {
+  const fetchWallets = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -58,20 +82,23 @@ function AdminWallet() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, page]);
 
   useEffect(() => {
     fetchWallets();
-  }, [search, page]);
+  }, [fetchWallets]);
 
   const viewWallet = async (walletId) => {
     try {
       setDetailsLoading(true);
       setSelectedWallet(null);
 
-      const response = await api.get(
-        `/admin/wallets/${walletId}`
-      );
+      const response = await api.get(`/admin/wallets/${walletId}`);
+
+      if (!response.data?.wallet) {
+        showNotification("Wallet details were not found.");
+        return;
+      }
 
       setSelectedWallet(response.data.wallet);
     } catch (err) {
@@ -80,29 +107,23 @@ function AdminWallet() {
         err.response?.data || err.message
       );
 
-      alert(
+      showNotification(
         err.response?.data?.message ||
-          "Unable to load wallet details."
+          "Unable to load wallet details. Please try again."
       );
     } finally {
       setDetailsLoading(false);
     }
   };
 
-  const totalPages = Math.max(
-    1,
-    pagination.totalPages || 1
-  );
+  const totalPages = Math.max(1, pagination.totalPages || 1);
 
   return (
     <div className="min-h-screen w-full bg-[#202936] text-white">
-      {/* AdminLayout already renders the sidebar and positions this page */}
       <div className="min-w-0 p-6">
         {/* HEADER */}
         <header className="mb-8">
-          <p className="text-sm text-gray-400">
-            Admin / Finance
-          </p>
+          <p className="text-sm text-gray-400">Admin / Finance</p>
 
           <h1 className="mt-2 text-2xl font-semibold">
             Wallet Management
@@ -121,9 +142,10 @@ function AdminWallet() {
             <button
               type="button"
               onClick={fetchWallets}
-              className="text-sm text-white underline"
+              disabled={loading}
+              className="text-sm text-white underline disabled:opacity-50"
             >
-              Retry
+              {loading ? "Loading..." : "Retry"}
             </button>
           </div>
         )}
@@ -131,10 +153,7 @@ function AdminWallet() {
         {/* SUMMARY CARDS */}
         <section className="mb-7 grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="rounded-xl border border-[#414d5e] bg-[#293444] p-5">
-            <p className="text-sm text-gray-400">
-              Customer Wallets
-            </p>
-
+            <p className="text-sm text-gray-400">Customer Wallets</p>
             <h2 className="mt-2 text-2xl font-semibold">
               {summary.totalWallets}
             </h2>
@@ -144,17 +163,13 @@ function AdminWallet() {
             <p className="text-sm text-gray-400">
               Combined Wallet Balance
             </p>
-
             <h2 className="mt-2 break-words text-2xl font-semibold">
               {formatMoney(summary.totalBalance)}
             </h2>
           </div>
 
           <div className="rounded-xl border border-[#414d5e] bg-[#293444] p-5">
-            <p className="text-sm text-gray-400">
-              Total Transactions
-            </p>
-
+            <p className="text-sm text-gray-400">Total Transactions</p>
             <h2 className="mt-2 text-2xl font-semibold">
               {summary.totalTransactions}
             </h2>
@@ -163,15 +178,11 @@ function AdminWallet() {
 
         {/* CUSTOMER WALLETS TABLE */}
         <section className="min-w-0 overflow-hidden rounded-xl border border-[#414d5e] bg-[#293444]">
-          {/* TABLE HEADER */}
           <div className="flex flex-col gap-4 border-b border-[#414d5e] p-5 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="font-semibold">
-                Customer Wallets
-              </h2>
-
+              <h2 className="font-semibold">Customer Wallets</h2>
               <p className="mt-1 text-xs text-gray-400">
-                View and manage customer wallet balances.
+                View customer wallet balances and transaction history.
               </p>
             </div>
 
@@ -188,23 +199,14 @@ function AdminWallet() {
             />
           </div>
 
-          {/* TABLE */}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[700px] text-left text-sm">
               <thead className="bg-[#202936] text-gray-400">
                 <tr>
-                  <th className="px-5 py-4 font-medium">
-                    Customer
-                  </th>
-                  <th className="px-5 py-4 font-medium">
-                    Email
-                  </th>
-                  <th className="px-5 py-4 font-medium">
-                    Balance
-                  </th>
-                  <th className="px-5 py-4 font-medium">
-                    Transactions
-                  </th>
+                  <th className="px-5 py-4 font-medium">Customer</th>
+                  <th className="px-5 py-4 font-medium">Email</th>
+                  <th className="px-5 py-4 font-medium">Balance</th>
+                  <th className="px-5 py-4 font-medium">Transactions</th>
                   <th className="px-5 py-4 text-right font-medium">
                     Action
                   </th>
@@ -237,8 +239,7 @@ function AdminWallet() {
                       className="border-t border-[#414d5e] transition hover:bg-[#303b4c]"
                     >
                       <td className="px-5 py-4">
-                        {wallet.userId?.name ||
-                          "Unknown customer"}
+                        {wallet.userId?.name || "Unknown customer"}
                       </td>
 
                       <td className="break-all px-5 py-4 text-gray-300">
@@ -257,7 +258,8 @@ function AdminWallet() {
                         <button
                           type="button"
                           onClick={() => viewWallet(wallet._id)}
-                          className="whitespace-nowrap rounded-md bg-[#b51a2b] px-3 py-2 text-xs transition hover:bg-red-700"
+                          disabled={detailsLoading}
+                          className="whitespace-nowrap rounded-md bg-[#b51a2b] px-3 py-2 text-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           View details
                         </button>
@@ -272,17 +274,14 @@ function AdminWallet() {
           {/* PAGINATION */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#414d5e] p-5 text-sm">
             <p className="text-gray-400">
-              Page {pagination.currentPage || page} of{" "}
-              {totalPages}
+              Page {pagination.currentPage || page} of {totalPages}
             </p>
 
             <div className="flex gap-2">
               <button
                 type="button"
                 disabled={page <= 1 || loading}
-                onClick={() =>
-                  setPage((current) => current - 1)
-                }
+                onClick={() => setPage((current) => current - 1)}
                 className="rounded-md border border-[#414d5e] px-3 py-2 transition hover:bg-[#354158] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Previous
@@ -291,9 +290,7 @@ function AdminWallet() {
               <button
                 type="button"
                 disabled={page >= totalPages || loading}
-                onClick={() =>
-                  setPage((current) => current + 1)
-                }
+                onClick={() => setPage((current) => current + 1)}
                 className="rounded-md border border-[#414d5e] px-3 py-2 transition hover:bg-[#354158] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Next
@@ -309,7 +306,7 @@ function AdminWallet() {
               <p className="text-gray-400">
                 Loading wallet details...
               </p>
-            ) : (
+            ) : selectedWallet ? (
               <>
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
                   <div>
@@ -318,9 +315,9 @@ function AdminWallet() {
                     </h2>
 
                     <p className="mt-1 break-all text-sm text-gray-400">
-                      {selectedWallet.userId?.name ||
-                        "Unknown customer"}{" "}
-                      · {selectedWallet.userId?.email || "—"}
+                      {selectedWallet.userId?.name || "Unknown customer"}
+                      {" · "}
+                      {selectedWallet.userId?.email || "—"}
                     </p>
                   </div>
 
@@ -357,12 +354,12 @@ function AdminWallet() {
                         [...selectedWallet.transactions]
                           .sort(
                             (a, b) =>
-                              new Date(b.createdAt) -
-                              new Date(a.createdAt)
+                              new Date(b.createdAt || 0) -
+                              new Date(a.createdAt || 0)
                           )
-                          .map((transaction) => (
+                          .map((transaction, index) => (
                             <tr
-                              key={transaction._id}
+                              key={transaction._id || index}
                               className="border-t border-[#414d5e]"
                             >
                               <td className="whitespace-nowrap px-3 py-3 text-gray-300">
@@ -381,7 +378,7 @@ function AdminWallet() {
                                       : "text-red-400"
                                   }
                                 >
-                                  {transaction.type}
+                                  {transaction.type || "—"}
                                 </span>
                               </td>
 
@@ -396,6 +393,7 @@ function AdminWallet() {
                               <td className="px-3 py-3">
                                 {transaction.orderId?.orderId ||
                                   transaction.orderId?._id ||
+                                  transaction.orderId ||
                                   "—"}
                               </td>
                             </tr>
@@ -414,10 +412,65 @@ function AdminWallet() {
                   </table>
                 </div>
               </>
-            )}
+            ) : null}
           </section>
         )}
       </div>
+
+      {/* CUSTOM NOTIFICATION MODAL */}
+      {notification.open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeNotification();
+            }
+          }}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="wallet-notification-title"
+            aria-describedby="wallet-notification-message"
+            className="w-full max-w-md rounded-2xl border border-[#414d5e] bg-[#293444] p-6 shadow-2xl"
+          >
+            <div
+              className={`mb-4 flex h-12 w-12 items-center justify-center rounded-full text-xl ${
+                notification.type === "success"
+                  ? "bg-green-500/15 text-green-400"
+                  : "bg-red-500/15 text-red-400"
+              }`}
+            >
+              {notification.type === "success" ? "✓" : "!"}
+            </div>
+
+            <h2
+              id="wallet-notification-title"
+              className="text-lg font-semibold"
+            >
+              {notification.title}
+            </h2>
+
+            <p
+              id="wallet-notification-message"
+              className="mt-2 text-sm leading-6 text-gray-300"
+            >
+              {notification.message}
+            </p>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                autoFocus
+                onClick={closeNotification}
+                className="rounded-lg bg-[#b51a2b] px-5 py-2.5 text-sm font-medium transition hover:bg-red-700"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

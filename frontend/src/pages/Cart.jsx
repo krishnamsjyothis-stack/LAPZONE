@@ -4,7 +4,8 @@ import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 
 const MAX_QUANTITY = 5;
-const API_BASE_URL = "https://lapzone-backend-psqn.onrender.com";
+const API_BASE_URL =
+  import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
 function formatPrice(value) {
   const price = Number(value);

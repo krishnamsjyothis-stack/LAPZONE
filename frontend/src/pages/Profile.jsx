@@ -1,435 +1,468 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import profileSchema from "../validation/profileValidation";
 import api from "../api/axios";
+
+
+const BACKEND_URL =
+  import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+function getProfileImageUrl(profileImage) {
+  if (!profileImage) return "";
+
+  const imagePath =
+    typeof profileImage === "string"
+      ? profileImage
+      : profileImage.url ||
+        profileImage.path ||
+        profileImage.filename;
+
+  if (typeof imagePath !== "string" || !imagePath.trim()) {
+    return "";
+  }
+
+  const path = imagePath.trim();
+
+  if (/^https?:\/\//i.test(path)) {
+    try {
+      const parsedUrl = new URL(path);
+
+      if (
+        parsedUrl.hostname === "localhost" ||
+        parsedUrl.hostname === "127.0.0.1"
+      ) {
+        return `${BACKEND_URL}${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
+      }
+
+      return path;
+    } catch {
+      return "";
+    }
+  }
+
+  return `${BACKEND_URL}/${path.replace(/^\/+/, "")}`;
+}
+
 
 function Profile() {
   const navigate = useNavigate();
 
-const [user, setUser] = useState(null);
-const [addresses, setAddresses] = useState([]);
-const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [addresses, setAddresses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [imageFailed, setImageFailed] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
-  // ================= FETCH PROFILE =================
+  useEffect(() => {
+    let active = true;
 
-useEffect(() => {
-  const fetchProfile = async () => {
-    try {
-      const token = localStorage.getItem("token");
-
-      if (!token) {
-        navigate("/login");
-        return;
-      }
-
-      // Get user profile
-      const profileResponse = await api.get("/user/profile", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      console.log("PROFILE:", profileResponse.data);
-
-      setUser(profileResponse.data.user);
-
-
-      // Get addresses
+    const fetchProfile = async () => {
       try {
-        const addressResponse = await api.get("/address", {
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+          navigate("/login");
+          return;
+        }
+
+        const config = {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        });
+        };
 
-        console.log("ADDRESSES:", addressResponse.data);
-
-        setAddresses(addressResponse.data.addresses || []);
-
-      } catch (addressError) {
-        console.error(
-          "ADDRESS ERROR:",
-          addressError.response?.data || addressError.message
+        const profileResponse = await api.get(
+          "/user/profile",
+          config
         );
 
-        // Don't stop the profile from loading
-        setAddresses([]);
+        if (!active) return;
+
+        const fetchedUser = profileResponse.data.user;
+
+        setUser(fetchedUser);
+        setImageFailed(false);
+
+        try {
+          const addressResponse = await api.get(
+            "/address",
+            config
+          );
+
+          if (active) {
+            setAddresses(addressResponse.data.addresses || []);
+          }
+        } catch (addressError) {
+          console.error(
+            "Address error:",
+            addressError.response?.data || addressError.message
+          );
+
+          if (active) {
+            setAddresses([]);
+          }
+        }
+      } catch (error) {
+        console.error(
+          "Profile error:",
+          error.response?.data || error.message
+        );
+
+        if (error.response?.status === 401) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          navigate("/login");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
+    };
 
+    fetchProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [navigate]);
+
+  const handleLogout = async () => {
+    if (logoutLoading) return;
+
+    setLogoutLoading(true);
+
+    try {
+      await api.post("/auth/logout");
     } catch (error) {
-
       console.error(
-        "PROFILE ERROR:",
+        "Logout error:",
         error.response?.data || error.message
       );
-
-      if (error.response?.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        navigate("/login");
-      }
-
     } finally {
-      setLoading(false);
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      navigate("/login");
     }
   };
 
-  fetchProfile();
-
-}, [navigate]);
-
-  // ================= LOGOUT =================
-
-const handleLogout = async () => {
-  try {
-    await api.post("/auth/logout");
-
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-
-    navigate("/login");
-  } catch (error) {
-    console.error(
-      "Logout error:",
-      error.response?.data || error.message
-    );
-  }
-};
-  // ================= LOADING =================
+  const profileImageUrl = getProfileImageUrl(user?.profileImage);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#151820] flex items-center justify-center text-white">
-        Loading profile...
+      <div className="min-h-screen bg-[#151820] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-[#c51f35] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-300">Loading profile...</p>
+        </div>
       </div>
     );
   }
 
-  // ================= PROFILE =================
-
   return (
     <div className="min-h-screen bg-[#151820] text-gray-200">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <div className="mb-8">
+          <p className="text-xs uppercase tracking-[0.2em] text-[#ff6479] mb-2">
+            My Account
+          </p>
 
+          <h1 className="text-3xl sm:text-4xl font-bold text-white">
+            My Profile
+          </h1>
 
-      {/* ================= MAIN ================= */}
+          <p className="text-gray-400 text-sm mt-2">
+            Manage your personal information and account settings.
+          </p>
+        </div>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6 items-start">
+          <aside className="space-y-4">
+            <div className="bg-[#384358] border border-white/5 rounded-2xl p-6 text-center">
+              <div className="w-28 h-28 mx-auto rounded-full border-2 border-[#c51f35] bg-[#222731] flex items-center justify-center overflow-hidden">
+                {profileImageUrl && !imageFailed ? (
+                  <img
+                    key={profileImageUrl}
+                    src={profileImageUrl}
+                    alt={`${user?.name || "User"} profile`}
+                    className="w-full h-full object-cover"
+                    onError={(event) => {
+                      console.error(
+                        "Profile image failed to load:",
+                        event.currentTarget.src
+                      );
+                      setImageFailed(true);
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="text-5xl"
+                    aria-label="Default profile avatar"
+                    role="img"
+                  >
+                    👤
+                  </span>
+                )}
+              </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[245px_1fr] gap-5">
+              <h2 className="text-white text-xl font-semibold mt-5 break-words">
+                {user?.name || "User"}
+              </h2>
 
+              <p className="text-gray-300 text-sm mt-2 break-all">
+                {user?.email || "Email not available"}
+              </p>
 
-          {/* ================= LEFT SIDEBAR ================= */}
+              <div className="mt-5 pt-4 border-t border-white/10">
+                <p className="text-xs text-gray-400">
+                  LAPZONE MEMBER
+                </p>
+              </div>
+            </div>
 
-        
+            <div className="bg-[#384358] border border-white/5 rounded-2xl p-3">
+              <button
+                type="button"
+                onClick={() => navigate("/profile/edit")}
+                className="w-full min-h-11 px-4 rounded-xl flex items-center gap-3 text-left text-gray-200 hover:bg-white/5 transition"
+              >
+                <span className="text-lg">✎</span>
+                <span className="text-sm font-medium">
+                  Edit Profile
+                </span>
+              </button>
 
-<aside>
+              <button
+                type="button"
+                onClick={() => navigate("/addresses")}
+                className="w-full min-h-11 px-4 rounded-xl flex items-center gap-3 text-left text-gray-200 hover:bg-white/5 transition"
+              >
+                <span className="text-lg">📍</span>
+                <span className="text-sm font-medium">
+                  Manage Addresses
+                </span>
+              </button>
 
-  {/* ================= PROFILE CARD ================= */}
+              <button
+                type="button"
+                onClick={() => navigate("/change-password")}
+                className="w-full min-h-11 px-4 rounded-xl flex items-center gap-3 text-left text-gray-200 hover:bg-white/5 transition"
+              >
+                <span className="text-lg">🔒</span>
+                <span className="text-sm font-medium">
+                  Change Password
+                </span>
+              </button>
 
-  <div className="bg-[#384358] rounded-2xl p-6 text-center">
+              <div className="border-t border-white/10 my-2" />
 
-    {/* PROFILE IMAGE */}
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={logoutLoading}
+                className="w-full min-h-11 px-4 rounded-xl flex items-center gap-3 text-[#ff7d8c] hover:bg-[#c51f35]/10 transition disabled:opacity-50"
+              >
+                <span className="text-lg">⇥</span>
+                <span className="text-sm font-medium">
+                  {logoutLoading ? "Logging out..." : "Logout"}
+                </span>
+              </button>
+            </div>
+          </aside>
 
-    <div className="w-28 h-28 mx-auto rounded-full border-2 border-[#c51f35] bg-[#222731] flex items-center justify-center overflow-hidden">
-
-      {user?.profileImage ? (
-        <img
-          src={`https://lapzone-backend-psqn.onrender.com${user.profileImage}`}
-          alt="Profile"
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <span className="text-5xl">
-          👤
-        </span>
-      )}
-
-    </div>
-
-    {/* NAME */}
-
-    <h2 className="text-white text-lg font-semibold mt-4">
-      {user?.name || "User"}
-    </h2>
-
-    {/* EMAIL */}
-
-    <p className="text-gray-300 text-xs mt-1 uppercase break-all">
-      {user?.email || "user@email.com"}
-    </p>
-
-  </div>
-
-
-  {/* ================= LOGOUT CARD ================= */}
-
-  <div className="bg-[#384358] rounded-2xl mt-4 p-2">
-
-    {/* LINE */}
-
-    <div className="border-t border-gray-500/30 my-3"></div>
-
-    {/* LOGOUT */}
-
-    <button
-      onClick={handleLogout}
-      className="w-full h-12 px-4 flex items-center gap-3 text-[#ff7d8c] hover:text-white transition"
-    >
-      <span className="text-lg">
-        ⇥
-      </span>
-
-      <span>
-        Logout
-      </span>
-    </button>
-
-  </div>
-
-</aside>
-
-
-          {/* ================= RIGHT CONTENT ================= */}
-
-          <section>
-
-            {/* ================= STATS ================= */}
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-
-              {/* ORDERS */}
-
-              <div className="bg-[#384358] rounded-2xl h-20 px-5 flex items-center gap-4">
-
-                <div className="w-12 h-12 rounded-full bg-[#222731] flex items-center justify-center text-[#c51f35] text-xl">
+          <section className="min-w-0 space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-[#384358] border border-white/5 rounded-2xl p-5 flex items-center gap-4">
+                <div className="w-12 h-12 shrink-0 rounded-xl bg-[#222731] flex items-center justify-center text-[#ff6479] text-xl">
                   ▣
                 </div>
 
-                <div>
-                  <p className="text-white text-lg">
-                    0
-                  </p>
-
-                  <p className="text-gray-400 text-[9px] uppercase">
+                <div className="min-w-0">
+                  <p className="text-white text-xl font-bold">0</p>
+                  <p className="text-gray-400 text-xs mt-1">
                     Total Orders
                   </p>
                 </div>
-
               </div>
 
-
-              {/* WISHLIST */}
-
-              <div className="bg-[#384358] rounded-2xl h-20 px-5 flex items-center gap-4">
-
-                <div className="w-12 h-12 rounded-full bg-[#222731] flex items-center justify-center text-[#c51f35] text-xl">
+              <div className="bg-[#384358] border border-white/5 rounded-2xl p-5 flex items-center gap-4">
+                <div className="w-12 h-12 shrink-0 rounded-xl bg-[#222731] flex items-center justify-center text-[#ff6479] text-xl">
                   ♥
                 </div>
 
-                <div>
-                  <p className="text-white text-lg">
-                    0
-                  </p>
-
-                  <p className="text-gray-400 text-[9px] uppercase">
+                <div className="min-w-0">
+                  <p className="text-white text-xl font-bold">0</p>
+                  <p className="text-gray-400 text-xs mt-1">
                     Wishlist Items
                   </p>
                 </div>
-
               </div>
 
-
-              {/* ADDRESSES */}
-
-              <div className="bg-[#384358] rounded-2xl h-20 px-5 flex items-center gap-4">
-
-                <div className="w-12 h-12 rounded-full bg-[#222731] flex items-center justify-center text-[#c51f35] text-xl">
-                  ●
+              <div className="bg-[#384358] border border-white/5 rounded-2xl p-5 flex items-center gap-4">
+                <div className="w-12 h-12 shrink-0 rounded-xl bg-[#222731] flex items-center justify-center text-[#ff6479] text-xl">
+                  📍
                 </div>
 
-                <div>
-                  <p className="text-white text-lg">
-                      {addresses.length}
-                   </p>
-
-                  <p className="text-gray-400 text-[9px] uppercase">
+                <div className="min-w-0">
+                  <p className="text-white text-xl font-bold">
+                    {addresses.length}
+                  </p>
+                  <p className="text-gray-400 text-xs mt-1">
                     Saved Addresses
                   </p>
                 </div>
-
               </div>
-
             </div>
 
-
-            {/* ================= PERSONAL INFORMATION ================= */}
-
-            <div className="bg-[#384358] rounded-2xl p-7">
-
-              {/* HEADER */}
-
-              <div className="flex justify-between items-start mb-7">
-
+            <div className="bg-[#384358] border border-white/5 rounded-2xl p-5 sm:p-7">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
                 <div>
-
-                  <h1 className="text-2xl font-semibold text-white">
+                  <h2 className="text-xl sm:text-2xl font-semibold text-white">
                     Personal Information
-                  </h1>
+                  </h2>
 
-                  <p className="text-gray-400 text-sm mt-1">
-                    Update your personal details and public profile.
+                  <p className="text-gray-400 text-sm mt-2">
+                    View your personal details and account information.
                   </p>
-
                 </div>
 
-                <div className="text-[#c51f35] text-4xl">
+                <div className="w-12 h-12 shrink-0 rounded-xl bg-[#222731] flex items-center justify-center text-[#ff6479] text-2xl">
                   ♙
                 </div>
-
               </div>
 
-
-              {/* FORM GRID */}
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-
-                {/* FULL NAME */}
-
-                <div>
-
-                  <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-2">
+                <div className="min-w-0">
+                  <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">
                     Full Name
                   </label>
 
-                  <div className="h-12 bg-[#222731] border border-[#4a5568] rounded-lg flex items-center px-4">
-
-                    <span className="text-gray-400 mr-3">
-                      ♙
-                    </span>
-
-                    <span className="text-gray-200 text-sm">
+                  <div className="min-h-12 bg-[#222731] border border-[#4a5568] rounded-lg flex items-center gap-3 px-4 py-3">
+                    <span className="text-gray-400">♙</span>
+                    <span className="text-sm text-gray-200 break-words">
                       {user?.name || "Not available"}
                     </span>
-
                   </div>
-
                 </div>
 
-
-                {/* EMAIL */}
-
-                <div>
-
-                  <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-2">
+                <div className="min-w-0">
+                  <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">
                     Email Address
                   </label>
 
-                  <div className="h-12 bg-[#222731] border border-[#4a5568] rounded-lg flex items-center px-4">
-
-                    <span className="text-gray-400 mr-3">
-                      ✉
-                    </span>
-
-                    <span className="text-gray-300 text-sm truncate">
+                  <div className="min-h-12 bg-[#222731] border border-[#4a5568] rounded-lg flex items-center gap-3 px-4 py-3">
+                    <span className="text-gray-400">✉</span>
+                    <span className="text-sm text-gray-200 break-all">
                       {user?.email || "Not available"}
                     </span>
-
                   </div>
-
                 </div>
 
-
-                {/* PHONE */}
-
-                <div>
-
-                  <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-2">
+                <div className="min-w-0">
+                  <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">
                     Phone Number
                   </label>
 
-                  <div className="h-12 bg-[#222731] border border-[#4a5568] rounded-lg flex items-center px-4">
-
-                    <span className="text-gray-400 mr-3">
-                      ☎
-                    </span>
-
-                    <span className="text-gray-300 text-sm">
+                  <div className="min-h-12 bg-[#222731] border border-[#4a5568] rounded-lg flex items-center gap-3 px-4 py-3">
+                    <span className="text-gray-400">☎</span>
+                    <span className="text-sm text-gray-200">
                       {user?.phone || "Not added"}
                     </span>
-
                   </div>
-
                 </div>
 
+                <div className="min-w-0">
+                  <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">
+                    Saved Addresses
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate("/addresses")}
+                    className="w-full min-h-12 bg-[#222731] border border-[#4a5568] rounded-lg flex items-center justify-between gap-3 px-4 py-3 text-left hover:border-[#c51f35] transition"
+                  >
+                    <span className="flex items-center gap-3 min-w-0">
+                      <span className="text-gray-400">📍</span>
+                      <span className="text-sm text-gray-200">
+                        {addresses.length === 0
+                          ? "No saved addresses"
+                          : `${addresses.length} saved ${
+                              addresses.length === 1
+                                ? "address"
+                                : "addresses"
+                            }`}
+                      </span>
+                    </span>
+
+                    <span className="text-[#ff6479] shrink-0">→</span>
+                  </button>
+                </div>
               </div>
 
+              {addresses.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-xs uppercase tracking-wider text-gray-400 mb-3">
+                    Your Addresses
+                  </h3>
 
-             {/* ================= ADDRESS ================= */}
+                  <div className="space-y-3">
+                    {addresses.map((address) => (
+                      <div
+                        key={address._id}
+                        className="bg-[#222731] border border-[#4a5568] rounded-xl p-4"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:justify-between gap-2">
+                          <p className="text-white text-sm font-semibold">
+                            {address.fullName || user?.name}
+                          </p>
 
-<div className="mt-5">
+                          {address.isDefault && (
+                            <span className="text-xs text-green-400">
+                              Default address
+                            </span>
+                          )}
+                        </div>
 
-  <div className="flex items-center justify-between mb-2">
+                        <p className="text-gray-300 text-sm mt-2 break-words">
+                          {address.addressLine}
+                        </p>
 
-    <label className="block text-[10px] uppercase tracking-wider text-gray-400">
-      Address
-    </label>
+                        <p className="text-gray-400 text-sm mt-1">
+                          {address.city}, {address.state} -{" "}
+                          {address.pincode}
+                        </p>
 
-    <button
-      onClick={() => navigate("/addresses")}
-      className="text-xs text-[#c51f35] hover:text-[#ff5268]"
-    >
-      Manage Addresses
-    </button>
+                        <p className="text-gray-400 text-sm mt-1">
+                          Phone: {address.phone}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-  </div>
+              <div className="flex flex-col sm:flex-row sm:justify-end gap-3 mt-8 pt-6 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => navigate("/change-password")}
+                  className="min-h-11 px-5 rounded-xl border border-[#c51f35] text-[#ff6479] hover:bg-[#c51f35] hover:text-white text-sm font-medium transition"
+                >
+                  Change Password
+                </button>
 
-  <div className="min-h-12 bg-[#222731] border border-[#4a5568] rounded-lg flex items-center px-4 py-3">
-
-    <span className="text-gray-400 mr-3">
-      📍
-    </span>
-
-    <span className="text-gray-300 text-sm">
-      {user?.address || "No address added"}
-    </span>
-
-  </div>
-
-</div>
-
-
-              {/* ================= EDIT ================= */}  
-
-             {/* ================= PROFILE ACTIONS ================= */}
-
-<div className="flex justify-end gap-4 mt-7">
-
-  <button
-    onClick={() => navigate("/change-password")}
-    className="px-6 h-11 rounded-xl border border-[#c51f35] text-[#c51f35] hover:bg-[#c51f35] hover:text-white text-sm font-medium transition"
-  >
-    Change Password
-  </button>
-
-  <button
-    onClick={() => navigate("/profile/edit")}
-    className="px-8 h-11 rounded-xl bg-[#c51f35] hover:bg-[#b51a2b] text-white text-sm font-medium transition"
-  >
-    Edit
-  </button>
-
-</div>
+                <button
+                  type="button"
+                  onClick={() => navigate("/profile/edit")}
+                  className="min-h-11 px-7 rounded-xl bg-[#c51f35] hover:bg-[#b51a2b] text-white text-sm font-semibold transition"
+                >
+                  Edit Profile
+                </button>
+              </div>
             </div>
-
           </section>
-
         </div>
-
       </main>
-
     </div>
   );
 }
 
-export default Profile; 
+export default Profile;

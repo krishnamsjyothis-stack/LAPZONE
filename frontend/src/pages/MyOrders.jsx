@@ -24,7 +24,8 @@ import {
 } from "lucide-react";
 import api from "../api/axios";
 
-const API_BASE_URL = "https://lapzone-backend-psqn.onrender.com";
+const API_BASE_URL =
+  import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 const ORDERS_PER_PAGE = 3;
 
 function getProductImageUrl(image) {

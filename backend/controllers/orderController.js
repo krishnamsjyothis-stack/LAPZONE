@@ -823,13 +823,15 @@ const requestReturn = async (req, res) => {
   }
 };
 
-// ======================================================
-// DOWNLOAD INVOICE
-// ======================================================
+
+ // ======================================================
+ // DOWNLOAD INVOICE - STYLED PDF
+ // ======================================================
+
+
 const downloadInvoice = async (req, res) => {
   try {
     const userId = req.userId;
-
     const { id } = req.params;
 
     const order = await Order.findOne({
@@ -843,128 +845,568 @@ const downloadInvoice = async (req, res) => {
       });
     }
 
-    res.setHeader(
-      "Content-Type",
-      "application/pdf"
-    );
+    const address = order.shippingAddress || {};
 
+    // PDF response headers
+    res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
       `attachment; filename=invoice-${order.orderId}.pdf`
     );
 
-    const doc = new PDFDocument();
+    const doc = new PDFDocument({
+      size: "A4",
+      margins: {
+        top: 45,
+        bottom: 45,
+        left: 45,
+        right: 45,
+      },
+      bufferPages: true,
+    });
 
     doc.pipe(res);
 
-    doc.fontSize(20).text(
-      "LAPZONE INVOICE",
+    const pageWidth = doc.page.width;
+    const left = 45;
+    const right = pageWidth - 45;
+    const contentWidth = right - left;
+
+    const colors = {
+      dark: "#202936",
+      red: "#B51A2B",
+      text: "#303846",
+      muted: "#687386",
+      light: "#F3F5F8",
+      border: "#DCE1E8",
+      white: "#FFFFFF",
+      green: "#168653",
+    };
+
+    const money = (amount) =>
+      `Rs. ${Number(amount || 0).toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+
+    const date = new Date(
+      order.createdAt || Date.now()
+    ).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+
+    // Draw a section heading
+    const sectionHeading = (title, y) => {
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(11)
+        .fillColor(colors.dark)
+        .text(title, left, y);
+
+      doc
+        .moveTo(left, y + 18)
+        .lineTo(right, y + 18)
+        .lineWidth(0.7)
+        .strokeColor(colors.border)
+        .stroke();
+
+      return y + 28;
+    };
+
+    // Header background
+    doc
+      .rect(0, 0, pageWidth, 125)
+      .fill(colors.dark);
+
+    // Brand
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(25)
+      .fillColor(colors.white)
+      .text("LAPZONE", left, 35);
+
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor("#D8DEE8")
+      .text("YOUR LAPTOP STORE", left, 67);
+
+    // Invoice label
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(19)
+      .fillColor(colors.white)
+      .text("INVOICE", left, 36, {
+        width: contentWidth,
+        align: "right",
+      });
+
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor("#D8DEE8")
+      .text(
+        `Invoice No: ${order.orderId || order._id}`,
+        left,
+        67,
+        {
+          width: contentWidth,
+          align: "right",
+        }
+      );
+
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor("#D8DEE8")
+      .text(`Invoice Date: ${date}`, left, 85, {
+        width: contentWidth,
+        align: "right",
+      });
+
+    // Start content below the header
+    let y = 150;
+
+    // Order information
+    y = sectionHeading("ORDER INFORMATION", y);
+
+    const infoTop = y;
+    const columnGap = 25;
+    const columnWidth = (contentWidth - columnGap) / 2;
+
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor(colors.muted)
+      .text("Order ID", left, infoTop);
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .fillColor(colors.text)
+      .text(
+        String(order.orderId || order._id),
+        left,
+        infoTop + 14,
+        { width: columnWidth }
+      );
+
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor(colors.muted)
+      .text("Order Date", left + columnWidth + columnGap, infoTop);
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .fillColor(colors.text)
+      .text(
+        date,
+        left + columnWidth + columnGap,
+        infoTop + 14
+      );
+
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor(colors.muted)
+      .text("Payment Method", left, infoTop + 40);
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .fillColor(colors.text)
+      .text(
+        String(order.paymentMethod || "N/A"),
+        left,
+        infoTop + 54
+      );
+
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor(colors.muted)
+      .text(
+        "Payment Status",
+        left + columnWidth + columnGap,
+        infoTop + 40
+      );
+
+    const paymentStatus = String(
+      order.paymentStatus || "Pending"
+    );
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .fillColor(
+        paymentStatus.toLowerCase() === "paid"
+          ? colors.green
+          : colors.red
+      )
+      .text(
+        paymentStatus,
+        left + columnWidth + columnGap,
+        infoTop + 54
+      );
+
+    y = infoTop + 85;
+
+    // Shipping address
+    y = sectionHeading("BILLING / SHIPPING ADDRESS", y);
+
+    const addressLines = [
+      address.fullName,
+      address.phone ? `Phone: ${address.phone}` : "",
+      address.addressLine,
+      [address.city, address.state]
+        .filter(Boolean)
+        .join(", "),
+      address.pincode
+        ? `PIN: ${address.pincode}`
+        : "",
+    ].filter(Boolean);
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .fillColor(colors.text)
+      .text(addressLines[0] || "Customer", left, y);
+
+    let addressY = y + 15;
+
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor(colors.muted);
+
+    addressLines.slice(1).forEach((line) => {
+      doc.text(String(line), left, addressY, {
+        width: contentWidth,
+      });
+
+      addressY = doc.y + 3;
+    });
+
+    y = Math.max(addressY, y + 45) + 12;
+
+    // Products table heading
+    y = sectionHeading("ORDER ITEMS", y);
+
+    const tableX = left;
+    const productWidth = 240;
+    const qtyWidth = 45;
+    const priceWidth = 95;
+    const totalWidth =
+      contentWidth -
+      productWidth -
+      qtyWidth -
+      priceWidth;
+
+    const productX = tableX + 10;
+    const qtyX = tableX + productWidth;
+    const priceX = qtyX + qtyWidth;
+    const totalX = priceX + priceWidth;
+
+    const drawTableHeader = () => {
+      doc
+        .rect(tableX, y, contentWidth, 27)
+        .fill(colors.dark);
+
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(8)
+        .fillColor(colors.white)
+        .text("PRODUCT", productX, y + 9, {
+          width: productWidth - 15,
+        })
+        .text("QTY", qtyX, y + 9, {
+          width: qtyWidth,
+          align: "center",
+        })
+        .text("UNIT PRICE", priceX, y + 9, {
+          width: priceWidth - 8,
+          align: "right",
+        })
+        .text("TOTAL", totalX, y + 9, {
+          width: totalWidth - 10,
+          align: "right",
+        });
+
+      y += 27;
+    };
+
+    drawTableHeader();
+
+    const items = order.items || [];
+
+    for (const [index, item] of items.entries()) {
+      const productName = String(
+        item.productName || "Laptop"
+      );
+
+      const quantity = Number(item.quantity || 0);
+      const price = Number(item.price || 0);
+      const itemTotal =
+        item.itemTotal != null
+          ? Number(item.itemTotal)
+          : price * quantity;
+
+      const nameHeight = doc
+        .font("Helvetica")
+        .fontSize(9)
+        .heightOfString(productName, {
+          width: productWidth - 20,
+        });
+
+      const rowHeight = Math.max(34, nameHeight + 18);
+
+      // Add a page if the next row will not fit
+      if (y + rowHeight > doc.page.height - 65) {
+        doc.addPage();
+        y = 45;
+        drawTableHeader();
+      }
+
+      if (index % 2 === 0) {
+        doc
+          .rect(tableX, y, contentWidth, rowHeight)
+          .fill(colors.light);
+      }
+
+      doc
+        .font("Helvetica")
+        .fontSize(9)
+        .fillColor(colors.text)
+        .text(productName, productX, y + 10, {
+          width: productWidth - 20,
+        })
+        .text(String(quantity), qtyX, y + 10, {
+          width: qtyWidth,
+          align: "center",
+        })
+        .text(money(price), priceX, y + 10, {
+          width: priceWidth - 8,
+          align: "right",
+        })
+        .text(money(itemTotal), totalX, y + 10, {
+          width: totalWidth - 10,
+          align: "right",
+        });
+
+      y += rowHeight;
+    }
+
+    if (items.length === 0) {
+      doc
+        .font("Helvetica")
+        .fontSize(9)
+        .fillColor(colors.muted)
+        .text("No items found for this order.", left, y + 10);
+
+      y += 35;
+    }
+
+    y += 22;
+
+    // Keep summary together on a new page if necessary
+    const summaryHeight = 175;
+
+    if (y + summaryHeight > doc.page.height - 65) {
+      doc.addPage();
+      y = 55;
+    }
+
+    const summaryWidth = 250;
+    const summaryX = right - summaryWidth;
+
+    doc
+      .roundedRect(
+        summaryX,
+        y,
+        summaryWidth,
+        summaryHeight,
+        6
+      )
+      .fill(colors.light);
+
+    let summaryY = y + 16;
+
+    const drawSummaryRow = (
+      label,
+      amount,
+      options = {}
+    ) => {
+      doc
+        .font(
+          options.bold
+            ? "Helvetica-Bold"
+            : "Helvetica"
+        )
+        .fontSize(options.bold ? 11 : 9)
+        .fillColor(
+          options.color || colors.text
+        )
+        .text(label, summaryX + 12, summaryY, {
+          width: 140,
+        })
+        .text(
+          money(amount),
+          summaryX + 145,
+          summaryY,
+          {
+            width: summaryWidth - 157,
+            align: "right",
+          }
+        );
+
+      summaryY += options.bold ? 27 : 22;
+    };
+
+    drawSummaryRow("Subtotal", order.subtotal);
+
+    drawSummaryRow(
+      "Coupon Discount",
+      order.discount,
+      { color: colors.green }
+    );
+
+    drawSummaryRow(
+      "Referral Discount",
+      order.referralDiscount,
+      { color: colors.green }
+    );
+
+    drawSummaryRow(
+      "Delivery Charge",
+      order.deliveryCharge
+    );
+
+    doc
+      .moveTo(summaryX + 12, summaryY - 4)
+      .lineTo(summaryX + summaryWidth - 12, summaryY - 4)
+      .lineWidth(0.8)
+      .strokeColor(colors.border)
+      .stroke();
+
+    summaryY += 5;
+
+    drawSummaryRow(
+      "TOTAL AMOUNT",
+      order.totalAmount,
       {
-        align: "center",
+        bold: true,
+        color: colors.red,
       }
     );
 
-    doc.moveDown();
+    y += summaryHeight + 28;
 
-    doc.fontSize(12).text(
-      `Order ID: ${order.orderId}`
-    );
+    // Thank-you section
+    if (y + 55 > doc.page.height - 45) {
+      doc.addPage();
+      y = 55;
+    }
 
-    doc.text(
-      `Order Date: ${new Date(
-        order.createdAt
-      ).toLocaleDateString()}`
-    );
+    doc
+      .moveTo(left, y)
+      .lineTo(right, y)
+      .lineWidth(0.8)
+      .strokeColor(colors.border)
+      .stroke();
 
-    doc.text(
-      `Payment Method: ${order.paymentMethod}`
-    );
-
-    doc.text(
-      `Payment Status: ${order.paymentStatus}`
-    );
-
-    doc.moveDown();
-
-    doc.text("Shipping Address:");
-
-    doc.text(
-      order.shippingAddress.fullName
-    );
-
-    doc.text(
-      order.shippingAddress.phone
-    );
-
-    doc.text(
-      order.shippingAddress.addressLine
-    );
-
-    doc.text(
-      `${order.shippingAddress.city}, ${order.shippingAddress.state} - ${order.shippingAddress.pincode}`
-    );
-
-    doc.moveDown();
-
-    doc.text("Products:");
-
-    order.items.forEach((item) => {
-      doc.moveDown(0.5);
-
-      doc.text(
-        `${item.productName} x ${item.quantity}`
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .fillColor(colors.dark)
+      .text(
+        "Thank you for shopping with LAPZONE!",
+        left,
+        y + 15,
+        {
+          width: contentWidth,
+          align: "center",
+        }
       );
 
-      doc.text(
-        `Price: ₹${item.price}`
+    doc
+      .font("Helvetica")
+      .fontSize(8)
+      .fillColor(colors.muted)
+      .text(
+        "We appreciate your business.",
+        left,
+        y + 32,
+        {
+          width: contentWidth,
+          align: "center",
+        }
       );
 
-      doc.text(
-        `Total: ₹${item.itemTotal}`
-      );
-    });
+    // Add a footer to every page
+    const pageRange = doc.bufferedPageRange();
 
-    doc.moveDown();
+    for (
+      let pageIndex = pageRange.start;
+      pageIndex < pageRange.start + pageRange.count;
+      pageIndex++
+    ) {
+      doc.switchToPage(pageIndex);
 
-    doc.text(
-      `Subtotal: ₹${order.subtotal}`
-    );
+      const footerY = doc.page.height - 30;
 
-    doc.text(
-      `Coupon Discount: ₹${order.discount}`
-    );
+      doc
+        .moveTo(left, footerY - 8)
+        .lineTo(right, footerY - 8)
+        .lineWidth(0.5)
+        .strokeColor(colors.border)
+        .stroke();
 
-    doc.text(
-      `Referral Discount: ₹${order.referralDiscount}`
-    );
+      doc
+        .font("Helvetica")
+        .fontSize(8)
+        .fillColor(colors.muted)
+        .text(
+          "LAPZONE | Computer and Laptop Store",
+          left,
+          footerY,
+          {
+            width: contentWidth / 2,
+            lineBreak: false,
+          }
+        );
 
-    doc.text(
-      `Delivery: ₹${order.deliveryCharge}`
-    );
-
-    doc.fontSize(14).text(
-      `Total Amount: ₹${order.totalAmount}`
-    );
-
-    doc.moveDown();
-
-    doc.text(
-      "Thank you for shopping with LAPZONE!"
-    );
+      doc
+        .text(
+          `Page ${pageIndex + 1}`,
+          left + contentWidth / 2,
+          footerY,
+          {
+            width: contentWidth / 2,
+            align: "right",
+            lineBreak: false,
+          }
+        );
+    }
 
     doc.end();
   } catch (error) {
-    console.error(
-      "Download invoice error:",
-      error
-    );
+    console.error("Download invoice error:", error);
 
-    return res.status(500).json({
-      message:
-        "Failed to generate invoice",
-    });
+    if (!res.headersSent) {
+      return res.status(500).json({
+        message: "Failed to generate invoice",
+      });
+    }
+
+    res.end();
   }
 };
+
+
 
 // ======================================================
 // EXPORTS

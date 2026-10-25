@@ -65,7 +65,9 @@ const Home = () => {
     if (/^https?:\/\//i.test(image)) return image;
 
     const baseURL = (
-      api.defaults?.baseURL || "https://lapzone-backend-psqn.onrender.com/api"
+     api.defaults?.baseURL ||
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000/api"
     ).replace(/\/+$/, "");
 
     const serverURL = baseURL.replace(/\/api$/i, "");

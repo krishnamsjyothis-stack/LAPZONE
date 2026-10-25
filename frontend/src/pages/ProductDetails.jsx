@@ -400,7 +400,7 @@ function ProductDetails() {
     if (!image) return "";
     return image.startsWith("http")
       ? image
-      : `https://lapzone-backend-psqn.onrender.com${image}`;
+      : `${import.meta.env.VITE_BACKEND_URL || "http://localhost:5000"}${image}`
   };
 
   return (
