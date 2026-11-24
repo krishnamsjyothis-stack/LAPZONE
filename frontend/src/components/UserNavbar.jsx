@@ -234,7 +234,7 @@ function UserNavbar() {
                         key={category.name}
                         type="button"
                         onClick={() =>
-                          handleCategory(category.name.toLowerCase())
+                          handleCategory(category.name)
                         }
                         className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-white/[0.06]"
                       >
@@ -518,7 +518,7 @@ function UserNavbar() {
                       key={category.name}
                       type="button"
                       onClick={() =>
-                        handleCategory(category.name.toLowerCase())
+                        handleCategory(category.name)
                       }
                       className="rounded-full border border-white/10 px-3 py-2 text-xs text-gray-300 transition-colors hover:border-[#b51a2b]/60 hover:text-[#ffb2b8]"
                     >
